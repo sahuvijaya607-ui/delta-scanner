@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import secrets
+import shutil
 import threading
 import time
 from datetime import datetime, timezone
@@ -24,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, render_template, request, session, send_from_directory
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -58,6 +59,61 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=False,  # localhost HTTP
 )
+
+
+def ensure_static_assets():
+    """Self-healing static asset loader to handle manual GitHub folder variations."""
+    base = os.path.dirname(__file__)
+    static_js_dir = os.path.join(base, "static", "js")
+    static_css_dir = os.path.join(base, "static", "css")
+    os.makedirs(static_js_dir, exist_ok=True)
+    os.makedirs(static_css_dir, exist_ok=True)
+
+    # Search candidates for app.js
+    for candidate in [
+        os.path.join(base, "static", "js", "js", "app.js"),
+        os.path.join(base, "js", "app.js"),
+        os.path.join(base, "static", "js", "app.js"),
+    ]:
+        if os.path.isfile(candidate):
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    content = f.read()
+                if "btn-group-edit" in content:
+                    target = os.path.join(static_js_dir, "app.js")
+                    if os.path.abspath(candidate) != os.path.abspath(target):
+                        with open(target, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        logger.info("Auto-synced app.js from %s to %s", candidate, target)
+                    break
+            except Exception as e:
+                logger.warning("Error inspecting candidate %s: %s", candidate, e)
+
+    # Search candidates for style.css
+    for candidate in [
+        os.path.join(base, "static", "js", "css", "style.css"),
+        os.path.join(base, "css", "style.css"),
+        os.path.join(base, "static", "css", "style.css"),
+    ]:
+        if os.path.isfile(candidate):
+            try:
+                with open(candidate, "r", encoding="utf-8") as f:
+                    content = f.read()
+                if "btn-group-edit" in content:
+                    target = os.path.join(static_css_dir, "style.css")
+                    if os.path.abspath(candidate) != os.path.abspath(target):
+                        with open(target, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        logger.info("Auto-synced style.css from %s to %s", candidate, target)
+                    break
+            except Exception as e:
+                logger.warning("Error inspecting candidate %s: %s", candidate, e)
+
+
+try:
+    ensure_static_assets()
+except Exception as _sync_err:
+    logger.warning("ensure_static_assets error: %s", _sync_err)
 
 BASE_URLS = {
     "india": "https://api.india.delta.exchange",
@@ -619,6 +675,16 @@ def index():
     """Render the dashboard UI."""
     get_browser_state()
     return render_template("index.html", version=int(time.time()))
+
+
+@app.route("/js/<path:filename>")
+def serve_root_js(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), "static", "js"), filename)
+
+
+@app.route("/css/<path:filename>")
+def serve_root_css(filename):
+    return send_from_directory(os.path.join(os.path.dirname(__file__), "static", "css"), filename)
 
 
 @app.get("/api/chain")
