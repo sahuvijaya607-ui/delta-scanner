@@ -547,6 +547,46 @@
     </div>
   </div>
 
+  <!-- Edit Strategy Group Modal -->
+  <div class="modal-overlay" id="editGroupModal">
+    <div class="modal-box modal-box-group">
+      <div class="modal-header">
+        <div class="modal-title">✏️ UPDATE COMBINED TARGET &amp; STOP-LOSS</div>
+        <button class="modal-close" id="editGroupModalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <label for="editGroupNameInput">STRATEGY NAME</label>
+          <input type="text" id="editGroupNameInput" autocomplete="off" disabled style="opacity: 0.75; cursor: not-allowed;">
+        </div>
+
+        <input type="hidden" id="editGroupIdInput">
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="editGroupTargetInput">COMBINED TARGET PROFIT ($)</label>
+            <input type="number" id="editGroupTargetInput" min="0.1" step="any" placeholder="e.g. 20.00">
+            <span class="input-subnote">Auto-exits all legs when combined profit reaches this amount</span>
+          </div>
+
+          <div class="input-group">
+            <label for="editGroupStopLossInput">COMBINED STOP-LOSS ($)</label>
+            <input type="number" id="editGroupStopLossInput" min="0.1" step="any" placeholder="e.g. 30.00">
+            <span class="input-subnote">Auto-exits all legs when combined loss reaches this amount</span>
+          </div>
+        </div>
+
+        <div class="group-rule-note">
+          ⚡ <strong>Instant Cloud Update:</strong> Changing these thresholds updates the 24/7 background monitor immediately without touching or closing your positions.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="editGroupModalCancelBtn">CANCEL</button>
+        <button class="btn btn-start" id="editGroupModalSaveBtn">SAVE NEW TARGET &amp; SL</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Live Order Confirmation Modal -->
   <div class="modal-overlay" id="orderModal">
     <div class="modal-box">
