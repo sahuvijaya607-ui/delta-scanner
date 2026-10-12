@@ -877,9 +877,14 @@ def api_wallet():
         return jsonify(connected=True, asset=asset, equity=total, available=avail, balances=balances)
     except DeltaAPIError as exc:
         return jsonify(connected=True, equity=0.0, available=0.0, error=str(exc)), 502
+@app.get("/api/my-ip")
+def api_my_ip():
+    """Return the outbound public IP of this server."""
+    try:
+        ip = requests.get("https://api.ipify.org", timeout=5).text.strip()
+        return jsonify(ip=ip)
     except Exception as exc:
-        return jsonify(connected=True, equity=0.0, available=0.0, error=str(exc)), 500
-
+        return jsonify(error=str(exc)), 500
 
 
 @app.post("/api/positions/close")
