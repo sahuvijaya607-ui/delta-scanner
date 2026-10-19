@@ -528,17 +528,14 @@
                 <span class="guard-label">EST. MARGIN REQUIRED:</span>
                 <span class="guard-val font-mono" id="marginRequiredVal">~$500.00 USD</span>
               </div>
-              <span class="guard-sep">|</span>
               <div class="margin-guard-item">
                 <span class="guard-label">REC. SAFE CAPITAL (3.0x):</span>
                 <span class="guard-val font-mono" id="marginRecommendedVal">~$1,500.00 USD</span>
               </div>
-              <span class="guard-sep">|</span>
               <div class="margin-guard-item">
                 <span class="guard-label">WALLET AVAILABLE:</span>
                 <span class="guard-val font-mono" id="marginWalletAvailVal">$0.00 USD</span>
               </div>
-              <span class="guard-sep">|</span>
               <div class="margin-guard-item">
                 <span class="guard-label">CUSHION RATIO:</span>
                 <span class="guard-val font-mono" id="marginCushionRatioVal">0.0x</span>
@@ -593,7 +590,7 @@
             </div>
           </div>
 
-          <!-- Auto-Calculated Math Strip -->
+          <!-- Auto-Calculated Math Strip with Editable Combined TP & SL -->
           <div class="strangle-math-strip">
             <div class="math-box">
               <span class="math-lbl">EXPIRY (NEXT-MONTH)</span>
@@ -603,16 +600,31 @@
               <span class="math-lbl">COMBINED ENTRY CREDIT</span>
               <span class="math-val font-mono pnl-positive" id="strangleTotalCreditVal">$104.23 USD</span>
             </div>
-            <div class="math-box">
-              <span class="math-lbl">AUTO TAKE PROFIT (+20%)</span>
-              <span class="math-val font-mono pnl-positive" id="strangleTpVal">+$20.85 USD</span>
+            <div class="math-box math-box-input">
+              <div class="math-box-header">
+                <span class="math-lbl">TARGET PROFIT (TP)</span>
+                <span class="math-pct-pill pnl-positive" id="strangleTpPctSub">+20%</span>
+              </div>
+              <div class="math-input-wrap">
+                <span class="math-input-prefix font-mono pnl-positive">+$</span>
+                <input type="number" id="strangleCustomTpInput" class="strangle-math-input font-mono pnl-positive" step="0.5" min="0.1" placeholder="20.85" title="Custom Combined Target Profit in USD">
+              </div>
+            </div>
+            <div class="math-box math-box-input">
+              <div class="math-box-header">
+                <span class="math-lbl">DYNAMIC STOP-LOSS</span>
+                <span class="math-pct-pill pnl-negative" id="strangleSlPctSub">Dynamic</span>
+              </div>
+              <div class="math-input-wrap">
+                <span class="math-input-prefix font-mono pnl-negative">-$</span>
+                <input type="number" id="strangleCustomSlInput" class="strangle-math-input font-mono pnl-negative" step="0.5" min="0.1" placeholder="41.70" title="Custom Combined Stop-Loss in USD">
+              </div>
             </div>
             <div class="math-box">
-              <span class="math-lbl">AUTO DYNAMIC STOP-LOSS</span>
-              <span class="math-val font-mono pnl-negative" id="strangleSlVal">-$41.70 USD</span>
-            </div>
-            <div class="math-box">
-              <span class="math-lbl">HARD SL CAP ($1.50/LOT)</span>
+              <div class="math-box-header">
+                <span class="math-lbl">HARD SL CAP ($1.50/LOT)</span>
+                <button type="button" class="btn-math-reset font-mono" id="strangleResetTpSlBtn" title="Reset TP &amp; SL to Rulebook defaults">↺ RESET</button>
+              </div>
               <span class="math-val font-mono" id="strangleHardSlVal">Max -$150.00</span>
             </div>
           </div>

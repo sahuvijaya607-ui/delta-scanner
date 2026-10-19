@@ -38,6 +38,9 @@
     sellingEnabled: false,
     walletAvailable: 0,
     walletEquity: 0,
+    userCustomTp: null,
+    userCustomSl: null,
+    lastStrangleCredit: 0,
   };
 
   // --- Element Selectors ---
@@ -172,6 +175,11 @@
     strangleTotalCreditVal: el('strangleTotalCreditVal'),
     strangleTpVal: el('strangleTpVal'),
     strangleSlVal: el('strangleSlVal'),
+    strangleCustomTpInput: el('strangleCustomTpInput'),
+    strangleCustomSlInput: el('strangleCustomSlInput'),
+    strangleTpPctSub: el('strangleTpPctSub'),
+    strangleSlPctSub: el('strangleSlPctSub'),
+    strangleResetTpSlBtn: el('strangleResetTpSlBtn'),
     strangleHardSlVal: el('strangleHardSlVal'),
     strangleActiveAlert: el('strangleActiveAlert'),
     strangleDeployBtn: el('strangleDeployBtn'),
@@ -1283,8 +1291,8 @@
     }
 
     dom.groupNameInput.value = `Strategy Pair #${state.strategyGroups.length + 1}`;
-    dom.groupTargetInput.value = '';
-    dom.groupStopLossInput.value = '';
+    dom.groupTargetInput.value = '15.00';
+    dom.groupStopLossInput.value = '30.00';
 
     const netPnl = selectedPositions.reduce((acc, p) => acc + Number(p.unrealized_pnl || 0), 0);
     const sign = netPnl >= 0 ? '+$' : '-$';
@@ -1494,7 +1502,7 @@
 
       // 1. If server has groups, server is our master source of truth across all devices (PC & Mobile)
       if (serverGroups.length > 0) {
-        const activeOnly = serverGroups.filter((g) => g.status === 'MONITORING' && g.name !== 'Strategy Pair #1');
+        const activeOnly = serverGroups.filter((g) => g.status === 'MONITORING' && g.id !== 'grp_1791791406521');
         const hasStructuralChange = groupsChanged(state.strategyGroups, activeOnly);
         state.strategyGroups = activeOnly;
         try {
@@ -1524,7 +1532,7 @@
   }
 
   function renderStrategyGroups() {
-    const activeGroups = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING' && g.name !== 'Strategy Pair #1');
+    const activeGroups = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING' && g.id !== 'grp_1791791406521');
     state.strategyGroups = activeGroups;
     dom.activeGroupsCount.textContent = `${activeGroups.length} ACTIVE`;
 
@@ -1858,6 +1866,7 @@
       dom.strangleExpiryVal.textContent = `${expiry} (${dte} DTE)`;
     }
     const totalCredit = math.total_credit != null ? math.total_credit : (math.total_credit_usd || 0);
+    state.lastStrangleCredit = totalCredit;
     if (dom.strangleTotalCreditVal) {
       dom.strangleTotalCreditVal.textContent = `$${Number(totalCredit).toFixed(2)} USD`;
     }
@@ -1865,10 +1874,25 @@
     if (dom.strangleTpVal) {
       dom.strangleTpVal.textContent = `+$${Number(tpDollar).toFixed(2)} USD`;
     }
+    if (dom.strangleCustomTpInput) {
+      if (state.userCustomTp == null || !document.activeElement || document.activeElement !== dom.strangleCustomTpInput) {
+        if (state.userCustomTp == null) {
+          dom.strangleCustomTpInput.value = Number(tpDollar).toFixed(2);
+        }
+      }
+    }
     const slDollar = math.final_sl_dollar != null ? math.final_sl_dollar : (math.final_sl_usd || 0);
     if (dom.strangleSlVal) {
       dom.strangleSlVal.textContent = `-$${Number(slDollar).toFixed(2)} USD`;
     }
+    if (dom.strangleCustomSlInput) {
+      if (state.userCustomSl == null || !document.activeElement || document.activeElement !== dom.strangleCustomSlInput) {
+        if (state.userCustomSl == null) {
+          dom.strangleCustomSlInput.value = Number(slDollar).toFixed(2);
+        }
+      }
+    }
+    updateStrangleTpSlSubLabels();
     const hardCap = math.hard_sl_cap != null ? math.hard_sl_cap : (math.hard_sl_cap_usd || 0);
     if (dom.strangleHardSlVal) {
       dom.strangleHardSlVal.textContent = `Max -$${Number(hardCap).toFixed(2)}`;
@@ -1921,6 +1945,32 @@
       } else {
         dom.strangleDeployBtn.disabled = false;
         dom.strangleDeployBtn.innerHTML = '<span class="btn-icon">⚡</span> 1-CLICK INSTANT DEPLOY STRANGLE';
+      }
+    }
+  }
+
+  // --- Strangle Custom TP/SL Percentage Calculator ---
+  function updateStrangleTpSlSubLabels() {
+    if (!dom.strangleCustomTpInput || !dom.strangleCustomSlInput) return;
+    const credit = Number(state.lastStrangleCredit) || 0;
+    const curTp = parseFloat(dom.strangleCustomTpInput.value) || 0;
+    const curSl = parseFloat(dom.strangleCustomSlInput.value) || 0;
+
+    if (dom.strangleTpPctSub) {
+      if (credit > 0 && curTp > 0) {
+        const pct = (curTp / credit) * 100;
+        dom.strangleTpPctSub.textContent = `+${pct.toFixed(0)}%`;
+      } else {
+        dom.strangleTpPctSub.textContent = 'Custom';
+      }
+    }
+
+    if (dom.strangleSlPctSub) {
+      if (credit > 0 && curSl > 0) {
+        const pct = (curSl / credit) * 100;
+        dom.strangleSlPctSub.textContent = `-${pct.toFixed(0)}%`;
+      } else {
+        dom.strangleSlPctSub.textContent = 'Custom';
       }
     }
   }
@@ -2108,14 +2158,20 @@
     const callSym = dom.strangleCallSymbol ? dom.strangleCallSymbol.textContent.trim() : 'Call';
     const putSym = dom.stranglePutSymbol ? dom.stranglePutSymbol.textContent.trim() : 'Put';
 
+    const customTp = dom.strangleCustomTpInput ? parseFloat(dom.strangleCustomTpInput.value) : null;
+    const customSl = dom.strangleCustomSlInput ? parseFloat(dom.strangleCustomSlInput.value) : null;
+
+    const displayTp = customTp != null && customTp > 0 ? customTp : 20.85;
+    const displaySl = customSl != null && customSl > 0 ? customSl : 41.70;
+
     const confirmMsg = 
       `⚡ CONFIRM INSTANT STRANGLE DEPLOY\n\n` +
       `• Instrument: BTC Monthly OTM Strangle\n` +
       `• Leg 1: SELL ${callSym} (${lots} Lots / ${btcSize} BTC)\n` +
       `• Leg 2: SELL ${putSym} (${lots} Lots / ${btcSize} BTC)\n` +
       `• Slippage Protection: Marketable Midpoint Limit Orders\n` +
-      `• Target Profit: +20% of Credit (Auto-Monitored 24/7)\n` +
-      `• Dynamic Stop-Loss: 40% Loss Buffer (Auto-Monitored 24/7)\n\n` +
+      `• Combined Target Profit: +$${displayTp.toFixed(2)} USD\n` +
+      `• Combined Dynamic Stop-Loss: -$${displaySl.toFixed(2)} USD\n\n` +
       `Execute both legs simultaneously on Delta Exchange?`;
 
     if (!window.confirm(confirmMsg)) {
@@ -2128,7 +2184,7 @@
 
       const res = await apiFetch('/api/strategy/monthly-strangle/execute', {
         method: 'POST',
-        body: JSON.stringify({ lots }),
+        body: JSON.stringify({ lots, custom_tp: customTp, custom_sl: customSl }),
       });
 
       if (res && res.success) {
@@ -2617,6 +2673,29 @@
 
     if (dom.saveLotsBtn) {
       dom.saveLotsBtn.addEventListener('click', saveDefaultLots);
+    }
+
+    if (dom.strangleCustomTpInput) {
+      dom.strangleCustomTpInput.addEventListener('input', (e) => {
+        state.userCustomTp = parseFloat(e.target.value) || null;
+        updateStrangleTpSlSubLabels();
+      });
+    }
+
+    if (dom.strangleCustomSlInput) {
+      dom.strangleCustomSlInput.addEventListener('input', (e) => {
+        state.userCustomSl = parseFloat(e.target.value) || null;
+        updateStrangleTpSlSubLabels();
+      });
+    }
+
+    if (dom.strangleResetTpSlBtn) {
+      dom.strangleResetTpSlBtn.addEventListener('click', () => {
+        state.userCustomTp = null;
+        state.userCustomSl = null;
+        fetchStranglePreview();
+        showToast('Reset to Rulebook 20% TP & Dynamic SL.', 'info', 2000);
+      });
     }
 
     if (dom.strangleSchedulerToggle) {
