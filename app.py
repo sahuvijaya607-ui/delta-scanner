@@ -11,6 +11,7 @@ Local Flask server providing:
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import hmac
 import json
@@ -20,7 +21,7 @@ import secrets
 import shutil
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -197,17 +198,17 @@ def get_browser_state() -> Dict[str, Any]:
         session["dashboard_id"] = secrets.token_urlsafe(24)
     sid = session["dashboard_id"]
     with STATE_LOCK:
-        if sid not in SESSION_STATE:
+        if sid not in SESSION_STATE or not SESSION_STATE[sid].get("api_key"):
             disk_creds = load_persistent_credentials()
             if disk_creds:
                 SESSION_STATE[sid] = {
                     "api_key": disk_creds.get("api_key", ""),
                     "api_secret": disk_creds.get("api_secret", ""),
                     "environment": disk_creds.get("environment", "india"),
-                    "history": [],
+                    "history": SESSION_STATE.get(sid, {}).get("history", []),
                     "tdx_client": None,
                 }
-            else:
+            elif sid not in SESSION_STATE:
                 SESSION_STATE[sid] = {
                     "api_key": "",
                     "api_secret": "",
@@ -559,12 +560,45 @@ def get_option_chain_snapshot(environment: str, underlying: str, requested_expir
     }
 
 
-def add_history_entry(state: Dict[str, Any], entry: Dict[str, Any]) -> None:
-    """Store order record in session memory history."""
-    with STATE_LOCK:
-        state["history"].insert(0, entry)
-        if len(state["history"]) > 150:
-            state["history"].pop()
+HISTORY_FILE = os.path.join(os.path.dirname(__file__), ".history.json")
+HISTORY_LOCK = threading.Lock()
+
+
+def load_persistent_history() -> List[Dict[str, Any]]:
+    """Load persistent order and strategy history from disk."""
+    if not os.path.exists(HISTORY_FILE):
+        return []
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, list) else []
+    except Exception as exc:
+        logger.warning("Could not read history file: %s", exc)
+        return []
+
+
+def save_persistent_history(history: List[Dict[str, Any]]) -> None:
+    """Save persistent order and strategy history to disk."""
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history[:200], f, indent=2)
+    except Exception as exc:
+        logger.error("Could not write history file: %s", exc)
+
+
+def add_history_entry(state: Optional[Dict[str, Any]], entry: Dict[str, Any]) -> None:
+    """Store order and strategy record in persistent disk history and session memory."""
+    with HISTORY_LOCK:
+        hist = load_persistent_history()
+        hist.insert(0, entry)
+        save_persistent_history(hist)
+
+    if state is not None:
+        with STATE_LOCK:
+            sess_hist = state.setdefault("history", [])
+            sess_hist.insert(0, entry)
+            if len(sess_hist) > 150:
+                sess_hist.pop()
 
 
 def execute_order(state: Dict[str, Any], order_spec: Dict[str, Any]) -> Dict[str, Any]:
@@ -1001,6 +1035,40 @@ def api_positions_close():
             }
             add_history_entry(state, history_entry)
 
+    # If closing a strategy group, record consolidated strategy audit entry and unregister from active groups
+    if group_name and group_name != "Position Group":
+        leg_names = " + ".join(str(p.get("symbol") or p.get("product_symbol", "")) for p in positions_to_close)
+        is_target = "target" in trigger_reason.lower() or "profit" in trigger_reason.lower()
+        is_sl = "stop" in trigger_reason.lower() or "sl" in trigger_reason.lower()
+        side_label = "PROFIT EXIT" if is_target else "SL EXIT" if is_sl else "CLOSE"
+        profit_num = None
+        if is_target:
+            import re
+            m = re.search(r"\+\$?([\d.]+)", trigger_reason)
+            if m:
+                try:
+                    profit_num = round(float(m.group(1)), 2)
+                except Exception:
+                    pass
+
+        entry_data = {
+            "symbol": f"{group_name} ({leg_names})",
+            "side": side_label,
+            "quantity": sum(abs(int(safe_float(p.get("size")))) for p in positions_to_close),
+            "price": f"+${profit_num:.2f}" if profit_num is not None else "MARKET",
+            "order_type": "strategy_target_exit" if is_target else "strategy_group_close",
+            "status": status_label,
+            "time": timestamp_str,
+        }
+        if profit_num is not None:
+            entry_data["realized_profit"] = profit_num
+
+        add_history_entry(state, entry_data)
+        with GROUPS_LOCK:
+            cur_groups = load_server_strategy_groups()
+            cur_groups = [g for g in cur_groups if g.get("name") != group_name]
+            save_server_strategy_groups(cur_groups)
+
     return jsonify(
         ok=len(errors) == 0,
         group_name=group_name,
@@ -1012,9 +1080,19 @@ def api_positions_close():
 
 @app.get("/api/history")
 def api_history():
-    """Return order audit history for the current session."""
+    """Return order audit history from persistent disk storage and current session."""
     state = get_browser_state()
-    return jsonify(history=state["history"])
+    with HISTORY_LOCK:
+        disk_history = load_persistent_history()
+
+    seen = set()
+    combined = []
+    for item in (disk_history + state.get("history", [])):
+        key = (item.get("time"), item.get("symbol"), item.get("side"), item.get("status"))
+        if key not in seen:
+            seen.add(key)
+            combined.append(item)
+    return jsonify(history=combined)
 
 
 @app.post("/api/orders")
@@ -1158,13 +1236,15 @@ GROUPS_LOCK = threading.Lock()
 
 
 def load_server_strategy_groups() -> List[Dict[str, Any]]:
-    """Load persistent strategy groups from disk."""
+    """Load persistent strategy groups from disk (only active MONITORING groups)."""
     if not os.path.exists(STRATEGY_GROUPS_FILE):
         return []
     try:
         with open(STRATEGY_GROUPS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            return data if isinstance(data, list) else []
+            if isinstance(data, list):
+                return [g for g in data if isinstance(g, dict) and g.get("status") == "MONITORING"]
+            return []
     except Exception as exc:
         logger.warning("Could not read strategy groups: %s", exc)
         return []
@@ -1177,6 +1257,307 @@ def save_server_strategy_groups(groups: List[Dict[str, Any]]) -> None:
             json.dump(groups, f, indent=2)
     except Exception as exc:
         logger.error("Could not write strategy groups: %s", exc)
+
+
+STRANGLE_SCHEDULER_FILE = os.path.join(os.path.dirname(__file__), ".strangle_scheduler.json")
+
+
+def load_strangle_scheduler() -> Dict[str, Any]:
+    """Load automated Saturday strangle scheduler settings."""
+    if not os.path.exists(STRANGLE_SCHEDULER_FILE):
+        return {"enabled": False, "lots": 100, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": False}
+    try:
+        with open(STRANGLE_SCHEDULER_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, dict):
+                if "selling_enabled" not in data:
+                    data["selling_enabled"] = False
+                return data
+            return {"enabled": False, "lots": 100, "selling_enabled": False}
+    except Exception:
+        return {"enabled": False, "lots": 100, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": False}
+
+
+def save_strangle_scheduler(data: Dict[str, Any]) -> None:
+    """Save automated Saturday strangle scheduler settings."""
+    try:
+        with open(STRANGLE_SCHEDULER_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        logger.error("Could not save strangle scheduler: %s", e)
+
+
+def get_next_month_last_friday(base_date=None) -> str:
+    """Calculate the DD-MM-YYYY string for Next-Month Last Friday (40-55 DTE)."""
+    if base_date is None:
+        base_date = datetime.now(timezone.utc)
+    year = base_date.year
+    month = base_date.month + 1
+    if month > 12:
+        month = 1
+        year += 1
+    last_day = calendar.monthrange(year, month)[1]
+    last_date = datetime(year, month, last_day, tzinfo=timezone.utc)
+    offset = (last_date.weekday() - 4) % 7
+    last_friday = last_date - timedelta(days=offset)
+    return last_friday.strftime("%d-%m-%Y")
+
+
+def select_monthly_strangle_strikes(environment="india", target_expiry=None) -> Dict[str, Any]:
+    """Official Rulebook Algorithm: Select +15% to +25% OTM Call and -15% to -25% OTM Put closest to $500 mark."""
+    client = DeltaRESTClient(environment)
+    expiries = get_asset_expiries(environment, "BTC")
+    avail_vals = [e["value"] for e in expiries]
+
+    if not target_expiry or target_expiry not in avail_vals:
+        calc_expiry = get_next_month_last_friday()
+        if calc_expiry in avail_vals:
+            target_expiry = calc_expiry
+        else:
+            now_dt = datetime.now(timezone.utc)
+            long_expiries = []
+            for e in expiries:
+                try:
+                    exp_dt = datetime.strptime(e["value"], "%d-%m-%Y").replace(tzinfo=timezone.utc)
+                    dte = (exp_dt - now_dt).days
+                    if 30 <= dte <= 65:
+                        long_expiries.append((dte, e["value"]))
+                except Exception:
+                    pass
+            if long_expiries:
+                long_expiries.sort(key=lambda x: x[0], reverse=True)
+                target_expiry = long_expiries[0][1]
+            elif avail_vals:
+                target_expiry = avail_vals[-1]
+
+    tickers = client.public_get("/v2/tickers", {
+        "contract_types": "call_options,put_options",
+        "underlying_asset_symbols": "BTC",
+        "expiry_date": target_expiry
+    })
+
+    if not tickers or not isinstance(tickers, list):
+        raise ValueError(f"No option tickers available for expiry {target_expiry}")
+
+    spot = 0.0
+    for t in tickers:
+        sp = safe_float(t.get("spot_price"))
+        if sp > 0:
+            spot = sp
+            break
+
+    if spot <= 0:
+        raise ValueError("Could not query BTC spot index price")
+
+    calls = [t for t in tickers if t.get("contract_type") == "call_options"]
+    puts = [t for t in tickers if t.get("contract_type") == "put_options"]
+
+    # CALL filtering: target zone +12% to +30% OTM (Delta ~0.15 - 0.20), closest to $500
+    call_candidates = []
+    for c in calls:
+        st = safe_float(c.get("strike_price"))
+        if st <= 0:
+            continue
+        dist = ((st - spot) / spot) * 100
+        mark = safe_float(c.get("mark_price"))
+        quotes = c.get("quotes") or {}
+        bid = safe_float(quotes.get("best_bid"))
+        ask = safe_float(quotes.get("best_ask"))
+        diff = abs(mark - 500.0)
+        if 12.0 <= dist <= 30.0:
+            call_candidates.append({
+                "strike": st, "mark": mark, "bid": bid, "ask": ask,
+                "dist": round(dist, 1), "diff_500": round(diff, 1),
+                "symbol": c.get("symbol"), "product_id": c.get("product_id")
+            })
+
+    if not call_candidates:
+        call_candidates = [{
+            "strike": safe_float(c.get("strike_price")),
+            "mark": safe_float(c.get("mark_price")),
+            "symbol": c.get("symbol"), "product_id": c.get("product_id"),
+            "diff_500": abs(safe_float(c.get("mark_price")) - 500),
+            "dist": round(((safe_float(c.get("strike_price")) - spot) / spot) * 100, 1),
+            "bid": safe_float((c.get("quotes") or {}).get("best_bid")),
+            "ask": safe_float((c.get("quotes") or {}).get("best_ask")),
+        } for c in calls if safe_float(c.get("strike_price")) > spot]
+
+    call_candidates.sort(key=lambda x: x["diff_500"])
+    selected_call = call_candidates[0]
+
+    # PUT filtering: target zone -30% to -12% OTM, closest to $500
+    put_candidates = []
+    for p in puts:
+        st = safe_float(p.get("strike_price"))
+        if st <= 0:
+            continue
+        dist = ((st - spot) / spot) * 100
+        mark = safe_float(p.get("mark_price"))
+        quotes = p.get("quotes") or {}
+        bid = safe_float(quotes.get("best_bid"))
+        ask = safe_float(quotes.get("best_ask"))
+        diff = abs(mark - 500.0)
+        if -30.0 <= dist <= -12.0:
+            put_candidates.append({
+                "strike": st, "mark": mark, "bid": bid, "ask": ask,
+                "dist": round(dist, 1), "diff_500": round(diff, 1),
+                "symbol": p.get("symbol"), "product_id": p.get("product_id")
+            })
+
+    if not put_candidates:
+        put_candidates = [{
+            "strike": safe_float(p.get("strike_price")),
+            "mark": safe_float(p.get("mark_price")),
+            "symbol": p.get("symbol"), "product_id": p.get("product_id"),
+            "diff_500": abs(safe_float(p.get("mark_price")) - 500),
+            "dist": round(((safe_float(p.get("strike_price")) - spot) / spot) * 100, 1),
+            "bid": safe_float((p.get("quotes") or {}).get("best_bid")),
+            "ask": safe_float((p.get("quotes") or {}).get("best_ask")),
+        } for p in puts if 0 < safe_float(p.get("strike_price")) < spot]
+
+    put_candidates.sort(key=lambda x: x["diff_500"])
+    selected_put = put_candidates[0]
+
+    try:
+        exp_dt = datetime.strptime(target_expiry, "%d-%m-%Y").replace(tzinfo=timezone.utc)
+        dte = (exp_dt - datetime.now(timezone.utc)).days
+    except Exception:
+        dte = 45
+
+    return {
+        "spot": spot,
+        "expiry": target_expiry,
+        "dte": dte,
+        "call": selected_call,
+        "put": selected_put,
+    }
+
+
+def calculate_strangle_math(call_price: float, put_price: float, lots: int) -> Dict[str, Any]:
+    """Auto-Scaled Lot Sizing, TP (+20%) and Dynamic SL Mathematics per Blueprint."""
+    btc_size = round(lots * 0.001, 4)
+    combined_prem_per_btc = round(call_price + put_price, 2)
+    total_credit = round(combined_prem_per_btc * btc_size, 2)
+
+    # TP = 20% of Credit
+    tp_dollar = round(total_credit * 0.20, 2)
+
+    # Dynamic SL = 2.0x TP (40% of Credit)
+    dynamic_sl_dollar = round(tp_dollar * 2.0, 2)
+
+    # Hard SL Cap = Lots * $1.50 USD
+    hard_sl_cap = round(lots * 1.50, 2)
+
+    final_sl_dollar = round(min(hard_sl_cap, dynamic_sl_dollar), 2)
+
+    tp_exit_prem = round(combined_prem_per_btc * 0.80, 2)
+    sl_exit_prem = round(combined_prem_per_btc + (final_sl_dollar / btc_size), 2)
+
+    return {
+        "lots": lots,
+        "btc_size": btc_size,
+        "call_price": call_price,
+        "put_price": put_price,
+        "combined_prem_per_btc": combined_prem_per_btc,
+        "total_credit": total_credit,
+        "tp_dollar": tp_dollar,
+        "dynamic_sl_dollar": dynamic_sl_dollar,
+        "hard_sl_cap": hard_sl_cap,
+        "final_sl_dollar": final_sl_dollar,
+        "tp_exit_prem": tp_exit_prem,
+        "sl_exit_prem": sl_exit_prem,
+    }
+
+
+def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 100) -> Dict[str, Any]:
+    """Execute SELL orders for both Call and Put legs of Monthly Strangle, then register 24/7 monitoring group."""
+    selection = select_monthly_strangle_strikes(env)
+    call_leg = selection["call"]
+    put_leg = selection["put"]
+
+    call_mark = call_leg["mark"]
+    put_mark = put_leg["mark"]
+
+    # Marketable Limit Prices at Midpoint with 0.5% buffer for slippage protection
+    call_mid = ((call_leg["bid"] + call_leg["ask"]) / 2.0) if (call_leg["bid"] > 0 and call_leg["ask"] > 0) else call_mark
+    put_mid = ((put_leg["bid"] + put_leg["ask"]) / 2.0) if (put_leg["bid"] > 0 and put_leg["ask"] > 0) else put_mark
+
+    call_limit = round(call_mid * 0.995, 1)
+    put_limit = round(put_mid * 0.995, 1)
+
+    math_data = calculate_strangle_math(call_mark, put_mark, lots)
+    rest_client = DeltaRESTClient(env, key, secret)
+
+    # 1. Place SELL CALL
+    call_order_payload = {
+        "product_id": int(call_leg["product_id"]),
+        "size": int(lots),
+        "side": "sell",
+        "order_type": "limit_order",
+        "limit_price": str(call_limit),
+        "time_in_force": "gtc",
+        "client_order_id": f"str-c-{secrets.token_hex(4)}",
+    }
+    call_res = rest_client.authenticated_request("POST", "/v2/orders", body=call_order_payload)
+
+    # 2. Place SELL PUT
+    put_order_payload = {
+        "product_id": int(put_leg["product_id"]),
+        "size": int(lots),
+        "side": "sell",
+        "order_type": "limit_order",
+        "limit_price": str(put_limit),
+        "time_in_force": "gtc",
+        "client_order_id": f"str-p-{secrets.token_hex(4)}",
+    }
+    put_res = rest_client.authenticated_request("POST", "/v2/orders", body=put_order_payload)
+
+    # 3. Create Strategy Group with Auto-Calculated TP & SL
+    group_id = f"grp_strangle_{int(time.time() * 1000)}"
+    new_group = {
+        "id": group_id,
+        "name": f"BTC Monthly Strangle ({lots} Lots)",
+        "strategy_type": "MONTHLY_STRANGLE",
+        "lots": lots,
+        "positions": [
+            {
+                "product_id": call_leg["product_id"],
+                "symbol": call_leg["symbol"],
+                "size": -int(lots),
+                "side": "sell",
+                "entry_price": call_mid,
+            },
+            {
+                "product_id": put_leg["product_id"],
+                "symbol": put_leg["symbol"],
+                "size": -int(lots),
+                "side": "sell",
+                "entry_price": put_mid,
+            },
+        ],
+        "target": math_data["tp_dollar"],
+        "stopLoss": math_data["final_sl_dollar"],
+        "total_credit": math_data["total_credit"],
+        "status": "MONITORING",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "notes": f"Auto-Strangle {lots} Lots · Target TP: +${math_data['tp_dollar']} | Dynamic SL: -${math_data['final_sl_dollar']}",
+    }
+
+    with GROUPS_LOCK:
+        groups = load_server_strategy_groups()
+        groups.insert(0, new_group)
+        save_server_strategy_groups(groups)
+
+    logger.info("Successfully deployed BTC Monthly Strangle: %s | Target: +$%.2f | SL: -$%.2f", new_group["name"], new_group["target"], new_group["stopLoss"])
+
+    return {
+        "ok": True,
+        "group": new_group,
+        "call_order": call_res,
+        "put_order": put_res,
+        "math": math_data,
+        "selection": selection,
+    }
 
 
 def run_strategy_monitor_daemon():
@@ -1298,6 +1679,20 @@ def run_strategy_monitor_daemon():
                             except Exception as c_err:
                                 logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
 
+                        # Archive to persistent history
+                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        add_history_entry(dummy_state, {
+                            "symbol": f"{grp.get('name')} ({leg_syms})",
+                            "side": "PROFIT EXIT",
+                            "quantity": f"{total_qty} Lots",
+                            "price": f"+${combined_mtm:.2f}",
+                            "realized_profit": round(float(combined_mtm), 2),
+                            "order_type": "strategy_target_exit",
+                            "status": f"🎯 Target Profit Booked (+${combined_mtm:.2f} USD)",
+                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                        })
+
                     # Trigger Stop-Loss Auto-Close
                     elif combined_mtm <= -abs(stop_loss):
                         logger.info("🛑 STOP-LOSS HIT for group '%s'! MTM=-$%.2f <= SL=-$%.2f. Auto-closing all legs!", grp.get("name"), abs(combined_mtm), stop_loss)
@@ -1311,8 +1706,56 @@ def run_strategy_monitor_daemon():
                             except Exception as c_err:
                                 logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
 
+                        # Archive to persistent history
+                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        add_history_entry(dummy_state, {
+                            "symbol": f"{grp.get('name')} ({leg_syms})",
+                            "side": "SL EXIT",
+                            "quantity": f"{total_qty} Lots",
+                            "price": f"-${abs(combined_mtm):.2f}",
+                            "order_type": "strategy_sl_exit",
+                            "status": f"🛑 Stop-Loss Closed (-${abs(combined_mtm):.2f} USD)",
+                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                        })
+
                 if dirty:
-                    save_server_strategy_groups(groups)
+                    # Keep only active groups in persistent strategy groups so completed groups disappear from the front panel!
+                    active_only = [g for g in groups if g.get("status") == "MONITORING"]
+                    save_server_strategy_groups(active_only)
+
+            # Automated Monthly Strangle Saturday 00:00 IST Scheduler
+            if int(time.time()) % 20 == 0:
+                try:
+                    sched = load_strangle_scheduler()
+                    if sched.get("enabled") and sched.get("selling_enabled", True):
+                        all_groups = load_server_strategy_groups()
+                        # Golden Rule: Check if a strangle trade is currently active (MONITORING)
+                        has_active = any(g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING" for g in all_groups)
+                        if not has_active:
+                            now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+                            # Saturday is weekday 5
+                            if now_ist.weekday() == 5:
+                                # Trigger window: Saturday midnight 00:00 to 00:20 IST
+                                if now_ist.hour == 0 and now_ist.minute <= 20:
+                                    current_date_str = now_ist.strftime("%Y-%m-%d")
+                                    if sched.get("last_executed_date") != current_date_str:
+                                        logger.info("⏰ SATURDAY 00:00 IST TRIGGER: Deploying automated Monthly Strangle (%s Lots)!", sched.get("lots", 100))
+                                        sched_creds = load_persistent_credentials()
+                                        if sched_creds and sched_creds.get("api_key") and sched_creds.get("api_secret"):
+                                            res = execute_monthly_strangle_order(
+                                                sched_creds.get("environment", "india"),
+                                                sched_creds.get("api_key"),
+                                                sched_creds.get("api_secret"),
+                                                lots=sched.get("lots", 100),
+                                            )
+                                            sched["last_executed_date"] = current_date_str
+                                            save_strangle_scheduler(sched)
+                                            logger.info("✅ Automated Monthly Strangle deployed successfully! Group ID: %s", res.get("group", {}).get("id"))
+                                        else:
+                                            logger.warning("Auto-scheduler could not execute: No persistent credentials saved.")
+                except Exception as sched_err:
+                    logger.debug("Auto-scheduler loop error: %s", sched_err)
 
         except Exception as loop_err:
             logger.debug("Strategy monitor daemon loop exception: %s", loop_err)
@@ -1354,6 +1797,114 @@ def api_delete_strategy_group(group_id):
     return jsonify(status="deleted", group_id=group_id)
 
 
+@app.get("/api/strategy/monthly-strangle/preview")
+def api_strangle_preview():
+    """Fetch live strike selection, math, and status for the Monthly Strangle strategy."""
+    state = get_browser_state()
+    lots = int(safe_float(request.args.get("lots", 100), 100))
+    if lots <= 0:
+        lots = 100
+    try:
+        selection = select_monthly_strangle_strikes(state["environment"])
+        math_data = calculate_strangle_math(selection["call"]["mark"], selection["put"]["mark"], lots)
+
+        with GROUPS_LOCK:
+            groups = load_server_strategy_groups()
+        active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
+        scheduler = load_strangle_scheduler()
+
+        return jsonify(
+            ok=True,
+            selection=selection,
+            math=math_data,
+            has_active_trade=bool(active_strangle),
+            active_trade=active_strangle,
+            scheduler=scheduler,
+            selling_enabled=scheduler.get("selling_enabled", True),
+        )
+    except Exception as exc:
+        logger.exception("Error in strangle preview")
+        return jsonify(ok=False, error=str(exc)), 500
+
+
+@app.post("/api/strategy/monthly-strangle/execute")
+def api_strangle_execute():
+    """Execute live 1-click Strangle order and activate 24/7 monitoring."""
+    state = get_browser_state()
+    key = state.get("api_key")
+    secret = state.get("api_secret")
+    env = state.get("environment", "india")
+
+    if not key or not secret:
+        creds = load_persistent_credentials()
+        if creds:
+            key = creds.get("api_key")
+            secret = creds.get("api_secret")
+            env = creds.get("environment", "india")
+
+    if not key or not secret:
+        return jsonify(error="API credentials required to execute live Strangle order."), 401
+
+    # Check Master Selling Switch
+    sched = load_strangle_scheduler()
+    if not sched.get("selling_enabled", True):
+        return jsonify(error="Option Selling is currently PAUSED (OFF). Turn ON the Option Selling switch to deploy trades."), 400
+
+    data = request.get_json(silent=True) or {}
+    lots = int(safe_float(data.get("lots", 100), 100))
+    if lots <= 0:
+        return jsonify(error="Lots must be greater than zero."), 400
+
+    # Golden Rule: No overlapping active strangle trades
+    with GROUPS_LOCK:
+        groups = load_server_strategy_groups()
+    active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
+    if active_strangle:
+        return jsonify(error=f"Golden Rule Active: Strangle '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
+
+    try:
+        result = execute_monthly_strangle_order(env, key, secret, lots=lots)
+        return jsonify(result)
+    except Exception as exc:
+        logger.exception("Strangle execution error")
+        return jsonify(error=str(exc)), 500
+
+
+@app.route("/api/strategy/monthly-strangle/selling-toggle", methods=["GET", "POST"])
+def api_strangle_selling_toggle():
+    """Get or set the master Option Selling ON/OFF state."""
+    sched = load_strangle_scheduler()
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        new_val = bool(data.get("enabled", True))
+        sched["selling_enabled"] = new_val
+        save_strangle_scheduler(sched)
+        logger.info("Option Selling Master Switch toggled to: %s", "ENABLED" if new_val else "PAUSED")
+        return jsonify(ok=True, selling_enabled=new_val)
+    return jsonify(ok=True, selling_enabled=sched.get("selling_enabled", True))
+
+
+@app.route("/api/strategy/monthly-strangle/scheduler", methods=["GET", "POST"])
+def api_strangle_scheduler():
+    """Inspect or configure automated Saturday 00:00 IST scheduler."""
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        sched = load_strangle_scheduler()
+        if "enabled" in data:
+            sched["enabled"] = bool(data["enabled"])
+        if "lots" in data:
+            sched["lots"] = max(1, int(safe_float(data["lots"], 100)))
+        save_strangle_scheduler(sched)
+        return jsonify(ok=True, scheduler=sched)
+
+    sched = load_strangle_scheduler()
+    with GROUPS_LOCK:
+        groups = load_server_strategy_groups()
+    active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
+    return jsonify(scheduler=sched, has_active_trade=bool(active_strangle), active_trade=active_strangle)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
 

@@ -443,6 +443,194 @@
         </div>
       </article>
 
+      <!-- Panel: BTC Monthly Safe OTM Strangle Strategy -->
+      <article class="panel strangle-strategy-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-icon">🤖</span>
+            <h3 class="panel-title">BTC MONTHLY SAFE OTM STRANGLE</h3>
+          </div>
+          <div class="strangle-header-badges">
+            <span class="badge-track-record">🏆 90.5% WIN RATE · 3-YR REAL DATA</span>
+            <button type="button" class="btn-selling-toggle selling-off" id="sellingMasterToggleBtn" title="Click to turn Option Selling ON or OFF">
+              <span class="selling-dot" id="sellingToggleDot">🔴</span>
+              <span class="selling-text font-mono" id="sellingToggleText">SELLING: OFF (PAUSED)</span>
+            </button>
+            <span class="badge-scheduler font-mono" id="strangleSchedulerBadge">⏰ SCHEDULER: OFF</span>
+          </div>
+        </div>
+
+        <div class="strangle-body">
+          <!-- Master Selling Engine Status Banner -->
+          <div class="selling-status-banner banner-selling-off" id="sellingStatusBanner">
+            <span class="banner-icon" id="sellingBannerIcon">⏸️</span>
+            <div class="banner-content">
+              <span class="banner-title" id="sellingBannerTitle">OPTION SELLING IS PAUSED (OFF):</span>
+              <span class="banner-desc" id="sellingBannerDesc">Option selling is turned OFF. No new sell trades will be opened. Live option scanner, positions tracking &amp; TP/SL risk monitors remain 100% active.</span>
+            </div>
+          </div>
+
+          <div class="strangle-description-bar">
+            <strong>OFFICIAL RULEBOOK:</strong> High-probability monthly theta decay selling OTM Call (~+15-20%) and Put (~-15-20%) closest to ~$500 premium on Next-Month Last Friday expiry with <strong>20% Take Profit</strong> and <strong>Dynamic Stop-Loss</strong>.
+          </div>
+
+          <!-- Configuration & Sizing Controls -->
+          <div class="strangle-config-grid">
+            <div class="input-group">
+              <label for="strangleLotsInput">LOT SIZING (1 LOT = 0.001 BTC)</label>
+              <div class="strangle-lots-wrapper">
+                <input type="number" id="strangleLotsInput" min="1" step="1" value="100" class="font-mono">
+                <div class="strangle-quick-lots">
+                  <button type="button" class="btn-quick-lot" data-lot="50">50</button>
+                  <button type="button" class="btn-quick-lot active" data-lot="100">100</button>
+                  <button type="button" class="btn-quick-lot" data-lot="250">250</button>
+                  <button type="button" class="btn-quick-lot" data-lot="500">500</button>
+                  <button type="button" class="btn-quick-lot" data-lot="1000">1,000</button>
+                </div>
+              </div>
+              <span class="input-subnote" id="strangleBtcSizeNote">Position Size: 0.100 BTC per leg</span>
+            </div>
+
+            <!-- Auto-Scheduler Control -->
+            <div class="strangle-scheduler-box">
+              <div class="scheduler-label-group">
+                <label>24/7 SATURDAY 00:00 IST AUTO-SCHEDULER</label>
+                <span class="scheduler-subnote">Auto-executes on 1st &amp; subsequent Saturdays (Zero Overlap Golden Rule)</span>
+              </div>
+              <div class="scheduler-toggle-wrap">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="strangleSchedulerToggle">
+                  <span class="slider round"></span>
+                </label>
+                <span class="scheduler-status-text font-mono" id="strangleSchedulerStatusText">DISABLED</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Capital & Live Margin Safety Guard (Rulebook Sec. 8) -->
+          <div class="strangle-margin-guard-box" id="strangleMarginGuardBox">
+            <div class="margin-guard-header">
+              <div class="guard-title-wrap">
+                <span class="guard-icon">🛡️</span>
+                <span class="guard-title">LIVE MARGIN &amp; CAPITAL SAFETY GUARD</span>
+                <span class="guard-rule-ref">(Rulebook Sec. 8 · 3.0x Buffer)</span>
+              </div>
+              <span class="badge-cushion badge-cushion-neutral font-mono" id="marginCushionStatusBadge">ℹ️ AWAITING WALLET</span>
+            </div>
+            <div class="margin-guard-metrics">
+              <div class="margin-guard-item">
+                <span class="guard-label">EST. MARGIN REQUIRED:</span>
+                <span class="guard-val font-mono" id="marginRequiredVal">~$500.00 USD</span>
+              </div>
+              <span class="guard-sep">|</span>
+              <div class="margin-guard-item">
+                <span class="guard-label">REC. SAFE CAPITAL (3.0x):</span>
+                <span class="guard-val font-mono" id="marginRecommendedVal">~$1,500.00 USD</span>
+              </div>
+              <span class="guard-sep">|</span>
+              <div class="margin-guard-item">
+                <span class="guard-label">WALLET AVAILABLE:</span>
+                <span class="guard-val font-mono" id="marginWalletAvailVal">$0.00 USD</span>
+              </div>
+              <span class="guard-sep">|</span>
+              <div class="margin-guard-item">
+                <span class="guard-label">CUSHION RATIO:</span>
+                <span class="guard-val font-mono" id="marginCushionRatioVal">0.0x</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Rulebook Strike Selection Preview -->
+          <div class="strangle-strikes-container">
+            <div class="strangle-leg-card strangle-leg-call">
+              <div class="leg-card-header">
+                <span class="leg-tag-call">SELL CALL (+OTM)</span>
+                <span class="leg-dist font-mono" id="strangleCallDist">+15.8% OTM</span>
+              </div>
+              <div class="leg-symbol font-mono" id="strangleCallSymbol">C-BTC-96000-271126</div>
+              <div class="leg-metrics-row">
+                <div class="leg-metric">
+                  <span class="metric-lbl">STRIKE:</span>
+                  <span class="metric-val font-mono" id="strangleCallStrike">$96,000</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">MARK PREM:</span>
+                  <span class="metric-val font-mono" id="strangleCallMark">$534.50</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">BID / ASK:</span>
+                  <span class="metric-val font-mono" id="strangleCallQuotes">$515 / $555</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="strangle-leg-card strangle-leg-put">
+              <div class="leg-card-header">
+                <span class="leg-tag-put">SELL PUT (-OTM)</span>
+                <span class="leg-dist font-mono" id="stranglePutDist">-16.8% OTM</span>
+              </div>
+              <div class="leg-symbol font-mono" id="stranglePutSymbol">P-BTC-69000-271126</div>
+              <div class="leg-metrics-row">
+                <div class="leg-metric">
+                  <span class="metric-lbl">STRIKE:</span>
+                  <span class="metric-val font-mono" id="stranglePutStrike">$69,000</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">MARK PREM:</span>
+                  <span class="metric-val font-mono" id="stranglePutMark">$507.80</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">BID / ASK:</span>
+                  <span class="metric-val font-mono" id="stranglePutQuotes">$490 / $525</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto-Calculated Math Strip -->
+          <div class="strangle-math-strip">
+            <div class="math-box">
+              <span class="math-lbl">EXPIRY (NEXT-MONTH)</span>
+              <span class="math-val font-mono" id="strangleExpiryVal">27-NOV-2026 (38 DTE)</span>
+            </div>
+            <div class="math-box">
+              <span class="math-lbl">COMBINED ENTRY CREDIT</span>
+              <span class="math-val font-mono pnl-positive" id="strangleTotalCreditVal">$104.23 USD</span>
+            </div>
+            <div class="math-box">
+              <span class="math-lbl">AUTO TAKE PROFIT (+20%)</span>
+              <span class="math-val font-mono pnl-positive" id="strangleTpVal">+$20.85 USD</span>
+            </div>
+            <div class="math-box">
+              <span class="math-lbl">AUTO DYNAMIC STOP-LOSS</span>
+              <span class="math-val font-mono pnl-negative" id="strangleSlVal">-$41.70 USD</span>
+            </div>
+            <div class="math-box">
+              <span class="math-lbl">HARD SL CAP ($1.50/LOT)</span>
+              <span class="math-val font-mono" id="strangleHardSlVal">Max -$150.00</span>
+            </div>
+          </div>
+
+          <!-- Active Trade / Golden Rule Status Alert (hidden unless active) -->
+          <div class="strangle-active-alert" id="strangleActiveAlert" style="display: none;">
+            <span class="alert-icon">🛡️</span>
+            <div class="alert-text">
+              <strong>GOLDEN RULE ACTIVE:</strong> A Strangle trade is currently running! New trade deployment is paused until the existing position hits Target or Stop-Loss.
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="strangle-actions-row">
+            <button class="btn btn-strangle-deploy" id="strangleDeployBtn">
+              <span class="btn-icon">⚡</span> 1-CLICK INSTANT DEPLOY STRANGLE
+            </button>
+            <button class="btn btn-secondary" id="strangleRefreshBtn">
+              <span class="btn-icon">🔄</span> REFRESH STRIKES
+            </button>
+          </div>
+        </div>
+      </article>
+
       <!-- Panel 3: Active Strategy Groups (Combined SL & TP) -->
       <article class="panel strategy-groups-panel">
         <div class="panel-header">
@@ -467,9 +655,12 @@
         <div class="panel-header">
           <div class="panel-title-box">
             <span class="panel-icon">📜</span>
-            <h3 class="panel-title">SESSION ORDER AUDIT</h3>
+            <h3 class="panel-title">ORDER &amp; STRATEGY AUDIT HISTORY</h3>
           </div>
-          <span class="badge-sub">IN-MEMORY LOG</span>
+          <div class="history-header-badges">
+            <span class="badge-total-profit font-mono" id="totalLifetimeProfitBadge">🏆 TOTAL PROFIT BOOKED: +$15.00 USD</span>
+            <span class="badge-sub">24/7 AUDIT LOG</span>
+          </div>
         </div>
 
         <div class="history-body">

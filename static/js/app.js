@@ -33,6 +33,11 @@
     maxDepths: { maxCallOi: 1, maxPutOi: 1, maxCallVol: 1, maxPutVol: 1 },
     isFetchingChain: false,
     isFetchingPositions: false,
+    stranglePreview: null,
+    isFetchingStrangle: false,
+    sellingEnabled: false,
+    walletAvailable: 0,
+    walletEquity: 0,
   };
 
   // --- Element Selectors ---
@@ -134,6 +139,56 @@
     groupCurrentMtm: el('groupCurrentMtm'),
     groupTargetInput: el('groupTargetInput'),
     groupStopLossInput: el('groupStopLossInput'),
+
+    // Edit Strategy Group modal
+    editGroupModal: el('editGroupModal'),
+    editGroupModalCloseBtn: el('editGroupModalCloseBtn'),
+    editGroupModalCancelBtn: el('editGroupModalCancelBtn'),
+    editGroupModalSaveBtn: el('editGroupModalSaveBtn'),
+    editGroupIdInput: el('editGroupIdInput'),
+    editGroupNameInput: el('editGroupNameInput'),
+    editGroupTargetInput: el('editGroupTargetInput'),
+    editGroupStopLossInput: el('editGroupStopLossInput'),
+
+    // Monthly Strangle Strategy Module
+    strangleLotsInput: el('strangleLotsInput'),
+    strangleBtcSizeNote: el('strangleBtcSizeNote'),
+    strangleSchedulerToggle: el('strangleSchedulerToggle'),
+    strangleSchedulerStatusText: el('strangleSchedulerStatusText'),
+    strangleSchedulerBadge: el('strangleSchedulerBadge'),
+    strangleCallDist: el('strangleCallDist'),
+    strangleCallSymbol: el('strangleCallSymbol'),
+    strangleCallStrike: el('strangleCallStrike'),
+    strangleCallMark: el('strangleCallMark'),
+    strangleCallQuotes: el('strangleCallQuotes'),
+    stranglePutDist: el('stranglePutDist'),
+    stranglePutSymbol: el('stranglePutSymbol'),
+    stranglePutStrike: el('stranglePutStrike'),
+    stranglePutMark: el('stranglePutMark'),
+    stranglePutQuotes: el('stranglePutQuotes'),
+    strangleExpiryVal: el('strangleExpiryVal'),
+    strangleTotalCreditVal: el('strangleTotalCreditVal'),
+    strangleTpVal: el('strangleTpVal'),
+    strangleSlVal: el('strangleSlVal'),
+    strangleHardSlVal: el('strangleHardSlVal'),
+    strangleActiveAlert: el('strangleActiveAlert'),
+    strangleDeployBtn: el('strangleDeployBtn'),
+    strangleRefreshBtn: el('strangleRefreshBtn'),
+    sellingMasterToggleBtn: el('sellingMasterToggleBtn'),
+    sellingToggleDot: el('sellingToggleDot'),
+    sellingToggleText: el('sellingToggleText'),
+    sellingStatusBanner: el('sellingStatusBanner'),
+    sellingBannerIcon: el('sellingBannerIcon'),
+    sellingBannerTitle: el('sellingBannerTitle'),
+    sellingBannerDesc: el('sellingBannerDesc'),
+    // Margin Cushion Safety Guard & Lifetime Total Profit Badge
+    totalLifetimeProfitBadge: el('totalLifetimeProfitBadge'),
+    strangleMarginGuardBox: el('strangleMarginGuardBox'),
+    marginCushionStatusBadge: el('marginCushionStatusBadge'),
+    marginRequiredVal: el('marginRequiredVal'),
+    marginRecommendedVal: el('marginRecommendedVal'),
+    marginWalletAvailVal: el('marginWalletAvailVal'),
+    marginCushionRatioVal: el('marginCushionRatioVal'),
 
     // Modals
     orderModal: el('orderModal'),
@@ -1323,6 +1378,66 @@
     showToast(`Activated ${name}: Combined TP: +$${target} | Combined SL: -$${stopLoss} (24/7 Cloud Monitored)`, 'success', 4000);
   }
 
+  function openEditGroupModal(group) {
+    if (!group) return;
+    initAudio();
+    dom.editGroupIdInput.value = group.id;
+    dom.editGroupNameInput.value = group.name || 'Strategy Group';
+    dom.editGroupTargetInput.value = group.target != null ? group.target : '';
+    dom.editGroupStopLossInput.value = group.stopLoss != null ? group.stopLoss : '';
+    dom.editGroupModal.classList.add('show');
+    setTimeout(() => {
+      try { dom.editGroupTargetInput.focus(); } catch (_) {}
+    }, 50);
+  }
+
+  function closeEditGroupModal() {
+    dom.editGroupModal.classList.remove('show');
+  }
+
+  async function saveEditedStrategyGroup() {
+    const groupId = dom.editGroupIdInput.value;
+    const target = Number(dom.editGroupTargetInput.value);
+    const stopLoss = Number(dom.editGroupStopLossInput.value);
+
+    if (!Number.isFinite(target) || target <= 0) {
+      showToast('Please enter a positive Combined Target Profit ($).', 'error');
+      return;
+    }
+
+    if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
+      showToast('Please enter a positive Combined Stop-Loss ($).', 'error');
+      return;
+    }
+
+    const group = state.strategyGroups.find((g) => g.id === groupId);
+    if (!group) {
+      showToast('Strategy Group not found.', 'error');
+      closeEditGroupModal();
+      return;
+    }
+
+    group.target = target;
+    group.stopLoss = stopLoss;
+
+    // Save locally and sync immediately with Render 24/7 background worker
+    saveGroupsToStorage(group);
+
+    try {
+      await apiFetch('/api/strategy-groups', {
+        method: 'POST',
+        body: JSON.stringify({ group: group }),
+      });
+    } catch (e) {
+      console.warn('Server group sync on edit:', e);
+    }
+
+    closeEditGroupModal();
+    renderStrategyGroups();
+    playSound('order');
+    showToast(`Updated ${group.name}: Target TP = +$${target} | Stop-Loss = -$${stopLoss} (24/7 Cloud Active)`, 'success', 4000);
+  }
+
   function saveGroupsToStorage(syncServerGroup = null) {
     try {
       localStorage.setItem('delta_strategy_groups', JSON.stringify(state.strategyGroups));
@@ -1377,10 +1492,11 @@
 
       // 1. If server has groups, server is our master source of truth across all devices (PC & Mobile)
       if (serverGroups.length > 0) {
-        const hasStructuralChange = groupsChanged(state.strategyGroups, serverGroups);
-        state.strategyGroups = serverGroups;
+        const activeOnly = serverGroups.filter((g) => g.status === 'MONITORING');
+        const hasStructuralChange = groupsChanged(state.strategyGroups, activeOnly);
+        state.strategyGroups = activeOnly;
         try {
-          localStorage.setItem('delta_strategy_groups', JSON.stringify(serverGroups));
+          localStorage.setItem('delta_strategy_groups', JSON.stringify(activeOnly));
         } catch (_) {}
         // Only rebuild DOM if groups structure/status changed or container is empty
         if (hasStructuralChange || !dom.strategyGroupsContainer.querySelector('.strategy-group-card')) {
@@ -1391,42 +1507,12 @@
         return;
       }
 
-      // 2. If server has NO groups, check if this browser device has groups in localStorage (e.g. PC before server setup)
-      let localGroups = [];
+      // 2. If server has NO active groups, clear any old local completed groups so screen stays clean
+      state.strategyGroups = [];
       try {
-        const localRaw = localStorage.getItem('delta_strategy_groups');
-        if (localRaw) localGroups = JSON.parse(localRaw);
+        localStorage.setItem('delta_strategy_groups', JSON.stringify([]));
       } catch (_) {}
-
-      if ((!localGroups || !localGroups.length) && state.strategyGroups && state.strategyGroups.length) {
-        localGroups = state.strategyGroups;
-      }
-
-      if (Array.isArray(localGroups) && localGroups.length > 0) {
-        const hasStructuralChange = groupsChanged(state.strategyGroups, localGroups);
-        state.strategyGroups = localGroups;
-        if (hasStructuralChange || !dom.strategyGroupsContainer.querySelector('.strategy-group-card')) {
-          renderStrategyGroups();
-        } else {
-          monitorStrategyGroups();
-        }
-        // Immediately sync-upload each local group to server so Mobile & daemon get it!
-        for (const grp of localGroups) {
-          try {
-            await apiFetch('/api/strategy-groups', {
-              method: 'POST',
-              body: JSON.stringify({ group: grp }),
-            });
-          } catch (e) {
-            console.warn('Failed to push group to server:', e);
-          }
-        }
-      } else {
-        if (state.strategyGroups.length > 0) {
-          state.strategyGroups = [];
-          renderStrategyGroups();
-        }
-      }
+      renderStrategyGroups();
     } catch (err) {
       console.warn('Strategy sync error:', err);
     } finally {
@@ -1435,21 +1521,22 @@
   }
 
   function renderStrategyGroups() {
-    const groups = state.strategyGroups || [];
-    dom.activeGroupsCount.textContent = `${groups.filter((g) => g.status === 'MONITORING').length} ACTIVE`;
+    const activeGroups = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING');
+    state.strategyGroups = activeGroups;
+    dom.activeGroupsCount.textContent = `${activeGroups.length} ACTIVE`;
 
-    if (!groups.length) {
+    if (!activeGroups.length) {
       dom.strategyGroupsContainer.innerHTML = `
         <div class="empty-groups-state" id="emptyGroupsState">
           <div class="empty-icon-sm">🎯</div>
-          <div class="empty-groups-title">No Strategy Groups Created</div>
-          <div class="empty-groups-sub">Select 2 or more positions in the table above and click <strong>"Combine into Group"</strong> to set a combined Target &amp; Stop-Loss!</div>
+          <div class="empty-groups-title">No Active Strategy Groups</div>
+          <div class="empty-groups-sub">Select 2 or more positions in the table above and click <strong>"Combine into Group"</strong> to set a combined Target &amp; Stop-Loss! Completed trades are archived in Audit History below.</div>
         </div>
       `;
       return;
     }
 
-    dom.strategyGroupsContainer.innerHTML = groups
+    dom.strategyGroupsContainer.innerHTML = activeGroups
       .map((g) => {
         let badgeHtml = '<span class="group-card-badge badge-monitoring">🟢 LIVE MONITORING</span>';
         let cardClass = 'monitoring';
@@ -1504,6 +1591,11 @@
             <div class="group-card-actions">
               ${
                 g.status === 'MONITORING'
+                  ? `<button class="btn-group-edit" data-edit-grp="${g.id}">✏️ EDIT TP / SL</button>`
+                  : ''
+              }
+              ${
+                g.status === 'MONITORING'
                   ? `<button class="btn-group-close" data-close-grp="${g.id}">🚨 CLOSE GROUP NOW</button>`
                   : ''
               }
@@ -1515,6 +1607,14 @@
       .join('');
 
     // Attach group actions
+    dom.strategyGroupsContainer.querySelectorAll('[data-edit-grp]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const gid = e.currentTarget.dataset.editGrp;
+        const grp = state.strategyGroups.find((g) => g.id === gid);
+        if (grp) openEditGroupModal(grp);
+      });
+    });
+
     dom.strategyGroupsContainer.querySelectorAll('[data-close-grp]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const gid = e.currentTarget.dataset.closeGrp;
@@ -1567,22 +1667,26 @@
       // Skip triggering if not in active MONITORING state
       if (group.status !== 'MONITORING') continue;
 
-      // If positions are no longer in open positions (e.g. closed manually elsewhere)
+      // If positions are no longer in open positions (e.g. closed manually elsewhere or settled)
       if (matchedCount === 0 && state.currentPositions.length > 0) {
-        group.status = 'CLOSED_EXTERNALLY';
-        saveGroupsToStorage(group);
+        state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+        saveGroupsToStorage();
         renderStrategyGroups();
+        try {
+          await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
+        } catch (_) {}
         continue;
       }
 
       // 1. Check Combined Target Profit Trigger
       if (combinedMtm >= group.target) {
         group.status = 'TARGET_HIT';
-        saveGroupsToStorage(group);
+        state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+        saveGroupsToStorage();
         renderStrategyGroups();
         playSound('order');
         showToast(
-          `🎯 TARGET REACHED! ${group.name} hit combined target of +$${group.target.toFixed(2)} (Actual: +$${combinedMtm.toFixed(2)}). Auto-closing all legs!`,
+          `🎯 TARGET REACHED! ${group.name} hit combined target of +$${group.target.toFixed(2)} (Actual: +$${combinedMtm.toFixed(2)}). Profit booked & archived to History!`,
           'success',
           7000
         );
@@ -1596,6 +1700,9 @@
               reason: `Combined Target Hit (+$${combinedMtm.toFixed(2)})`,
             }),
           });
+          try {
+            await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
+          } catch (_) {}
           await refreshPositions();
           await refreshHistory();
         } catch (err) {
@@ -1605,11 +1712,12 @@
       // 2. Check Combined Stop-Loss Trigger
       else if (combinedMtm <= -Math.abs(group.stopLoss)) {
         group.status = 'SL_HIT';
-        saveGroupsToStorage(group);
+        state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+        saveGroupsToStorage();
         renderStrategyGroups();
         playSound('exit');
         showToast(
-          `🛑 STOP-LOSS HIT! ${group.name} hit combined stop-loss of -$${group.stopLoss.toFixed(2)} (Actual: -$${Math.abs(combinedMtm).toFixed(2)}). Auto-closing all legs!`,
+          `🛑 STOP-LOSS HIT! ${group.name} hit combined stop-loss of -$${group.stopLoss.toFixed(2)} (Actual: -$${Math.abs(combinedMtm).toFixed(2)}). Position closed & archived to History!`,
           'error',
           7000
         );
@@ -1623,6 +1731,9 @@
               reason: `Combined Stop-Loss Hit (-$${Math.abs(combinedMtm).toFixed(2)})`,
             }),
           });
+          try {
+            await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
+          } catch (_) {}
           await refreshPositions();
           await refreshHistory();
         } catch (err) {
@@ -1648,10 +1759,14 @@
       });
 
       group.status = 'CLOSED_MANUALLY';
-      saveGroupsToStorage(group);
+      state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+      saveGroupsToStorage();
       renderStrategyGroups();
+      try {
+        await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
+      } catch (_) {}
       playSound('order');
-      showToast(`Strategy Group closed: ${group.name}`, 'success');
+      showToast(`Strategy Group closed & archived: ${group.name}`, 'success');
       await refreshPositions();
       await refreshHistory();
     } catch (err) {
@@ -1670,6 +1785,332 @@
     showToast('Strategy Group removed.', 'info', 2000);
   }
 
+  // --- Monthly Safe OTM Strangle Strategy Module ---
+  async function fetchStranglePreview() {
+    if (state.isFetchingStrangle) return;
+    state.isFetchingStrangle = true;
+
+    try {
+      const lots = parseInt(dom.strangleLotsInput ? dom.strangleLotsInput.value : '100', 10) || 100;
+      const data = await apiFetch(`/api/strategy/monthly-strangle/preview?lots=${lots}`);
+      if (data && (data.success || data.ok)) {
+        state.stranglePreview = data;
+        renderStranglePreview(data);
+      }
+    } catch (err) {
+      console.warn('Error fetching strangle preview:', err);
+    } finally {
+      state.isFetchingStrangle = false;
+    }
+  }
+
+  function renderStranglePreview(data) {
+    if (!data) return;
+
+    const sel = data.selection || {};
+    const call = sel.call || data.call_leg;
+    const put = sel.put || data.put_leg;
+    const math = data.math || {};
+    const lots = math.lots || data.lots || 100;
+    const btcSize = (math.btc_size != null ? Number(math.btc_size) : lots * 0.001).toFixed(3);
+    const expiry = sel.expiry || data.expiry || '—';
+    const dte = sel.dte != null ? sel.dte : (data.dte || 0);
+
+    if (dom.strangleBtcSizeNote) {
+      dom.strangleBtcSizeNote.textContent = `Position Size: ${btcSize} BTC per leg (${lots} Lots)`;
+    }
+
+    // Call Leg Card
+    if (call && dom.strangleCallSymbol) {
+      dom.strangleCallSymbol.textContent = call.symbol || '—';
+      dom.strangleCallStrike.textContent = call.strike ? `$${Number(call.strike).toLocaleString()}` : '—';
+      const callMark = call.mark != null ? call.mark : call.mark_price;
+      dom.strangleCallMark.textContent = callMark != null ? `$${Number(callMark).toFixed(2)}` : '—';
+      const callBid = call.bid != null ? call.bid : call.best_bid;
+      const callAsk = call.ask != null ? call.ask : call.best_ask;
+      dom.strangleCallQuotes.textContent = `${callBid != null ? '$' + Number(callBid).toFixed(1) : '—'} / ${callAsk != null ? '$' + Number(callAsk).toFixed(1) : '—'}`;
+      const callDist = call.dist != null ? call.dist : call.otm_pct;
+      dom.strangleCallDist.textContent = callDist != null ? `+${Number(callDist).toFixed(1)}% OTM` : '—';
+    }
+
+    // Put Leg Card
+    if (put && dom.stranglePutSymbol) {
+      dom.stranglePutSymbol.textContent = put.symbol || '—';
+      dom.stranglePutStrike.textContent = put.strike ? `$${Number(put.strike).toLocaleString()}` : '—';
+      const putMark = put.mark != null ? put.mark : put.mark_price;
+      dom.stranglePutMark.textContent = putMark != null ? `$${Number(putMark).toFixed(2)}` : '—';
+      const putBid = put.bid != null ? put.bid : put.best_bid;
+      const putAsk = put.ask != null ? put.ask : put.best_ask;
+      dom.stranglePutQuotes.textContent = `${putBid != null ? '$' + Number(putBid).toFixed(1) : '—'} / ${putAsk != null ? '$' + Number(putAsk).toFixed(1) : '—'}`;
+      const putDist = put.dist != null ? put.dist : put.otm_pct;
+      dom.stranglePutDist.textContent = putDist != null ? `${Number(putDist).toFixed(1)}% OTM` : '—';
+    }
+
+    // Math Strip
+    if (dom.strangleExpiryVal) {
+      dom.strangleExpiryVal.textContent = `${expiry} (${dte} DTE)`;
+    }
+    const totalCredit = math.total_credit != null ? math.total_credit : (math.total_credit_usd || 0);
+    if (dom.strangleTotalCreditVal) {
+      dom.strangleTotalCreditVal.textContent = `$${Number(totalCredit).toFixed(2)} USD`;
+    }
+    const tpDollar = math.tp_dollar != null ? math.tp_dollar : (math.tp_target_usd || 0);
+    if (dom.strangleTpVal) {
+      dom.strangleTpVal.textContent = `+$${Number(tpDollar).toFixed(2)} USD`;
+    }
+    const slDollar = math.final_sl_dollar != null ? math.final_sl_dollar : (math.final_sl_usd || 0);
+    if (dom.strangleSlVal) {
+      dom.strangleSlVal.textContent = `-$${Number(slDollar).toFixed(2)} USD`;
+    }
+    const hardCap = math.hard_sl_cap != null ? math.hard_sl_cap : (math.hard_sl_cap_usd || 0);
+    if (dom.strangleHardSlVal) {
+      dom.strangleHardSlVal.textContent = `Max -$${Number(hardCap).toFixed(2)}`;
+    }
+
+    // Scheduler Toggle State Sync
+    const isSched = data.scheduler ? !!data.scheduler.enabled : !!data.scheduler_enabled;
+    if (dom.strangleSchedulerToggle && dom.strangleSchedulerToggle.checked !== isSched) {
+      dom.strangleSchedulerToggle.checked = isSched;
+    }
+    if (dom.strangleSchedulerStatusText) {
+      dom.strangleSchedulerStatusText.textContent = isSched ? 'ACTIVE (EVERY SAT 00:00 IST)' : 'DISABLED';
+      dom.strangleSchedulerStatusText.classList.toggle('active', isSched);
+    }
+    if (dom.strangleSchedulerBadge) {
+      dom.strangleSchedulerBadge.textContent = isSched ? '⏰ SCHEDULER: ON' : '⏰ SCHEDULER: OFF';
+      dom.strangleSchedulerBadge.classList.toggle('badge-scheduler-on', isSched);
+    }
+
+    // Golden Rule Check: Is there an active Strangle group?
+    const hasActiveStrangle = data.has_active_trade != null ? data.has_active_trade : !!data.active_strangle;
+    const activeStrangleObj = data.active_trade || data.active_strangle;
+    if (dom.strangleActiveAlert) {
+      dom.strangleActiveAlert.style.display = hasActiveStrangle ? 'flex' : 'none';
+      if (hasActiveStrangle && activeStrangleObj && activeStrangleObj.name) {
+        const alertText = dom.strangleActiveAlert.querySelector('.alert-text');
+        if (alertText) {
+          const mtmVal = Number(activeStrangleObj.current_mtm || 0);
+          const mtmSign = mtmVal >= 0 ? '+$' : '-$';
+          const formattedMtm = `${mtmSign}${Math.abs(mtmVal).toFixed(2)}`;
+          alertText.innerHTML = `<strong>GOLDEN RULE ACTIVE:</strong> Strategy <code>${escapeHtml(activeStrangleObj.name)}</code> is currently open (MTM: ${formattedMtm}). Next trade locked until exit.`;
+        }
+      }
+    }
+
+    // Sync Option Selling Master Switch
+    const isSellingOn = data.selling_enabled != null ? !!data.selling_enabled : true;
+    updateSellingSwitchUI(isSellingOn);
+
+    // Update Live Margin & Capital Cushion Guard
+    updateMarginCushionGuard();
+
+    if (dom.strangleDeployBtn) {
+      if (!isSellingOn) {
+        dom.strangleDeployBtn.disabled = true;
+        dom.strangleDeployBtn.innerHTML = '<span class="btn-icon">⏸️</span> SELLING PAUSED (TURN ON TO DEPLOY)';
+      } else if (hasActiveStrangle) {
+        dom.strangleDeployBtn.disabled = true;
+        dom.strangleDeployBtn.innerHTML = '<span class="btn-icon">🔒</span> STRANGLE IN PROGRESS (GOLDEN RULE)';
+      } else {
+        dom.strangleDeployBtn.disabled = false;
+        dom.strangleDeployBtn.innerHTML = '<span class="btn-icon">⚡</span> 1-CLICK INSTANT DEPLOY STRANGLE';
+      }
+    }
+  }
+
+  // --- Margin Cushion & Capital Safety Guard (Rulebook Sec. 8) ---
+  function updateMarginCushionGuard() {
+    const lots = dom.strangleLotsInput ? (parseInt(dom.strangleLotsInput.value, 10) || 100) : 100;
+    // Rulebook Sec. 8: ~$500 per 100 lots ($5/lot) margin, ~$1,500 recommended ($15/lot)
+    const estMargin = lots * 5.0;
+    const recCapital = lots * 15.0;
+
+    if (dom.marginRequiredVal) {
+      dom.marginRequiredVal.textContent = `~$${formatMoney(estMargin)} USD`;
+    }
+    if (dom.marginRecommendedVal) {
+      dom.marginRecommendedVal.textContent = `~$${formatMoney(recCapital)} USD`;
+    }
+
+    const walletAvail = Number(state.walletAvailable) || 0;
+    if (dom.marginWalletAvailVal) {
+      if (state.isConnected) {
+        dom.marginWalletAvailVal.textContent = `$${formatMoney(walletAvail)} USD`;
+      } else {
+        dom.marginWalletAvailVal.textContent = 'Awaiting Connection';
+      }
+    }
+
+    if (dom.marginCushionRatioVal && dom.marginCushionStatusBadge) {
+      if (!state.isConnected) {
+        dom.marginCushionRatioVal.textContent = '—';
+        dom.marginCushionStatusBadge.textContent = 'ℹ️ AWAITING WALLET';
+        dom.marginCushionStatusBadge.className = 'badge-cushion badge-cushion-neutral font-mono';
+        return;
+      }
+
+      const ratio = estMargin > 0 ? (walletAvail / estMargin) : 0;
+      dom.marginCushionRatioVal.textContent = `${ratio.toFixed(1)}x`;
+
+      if (ratio >= 3.0) {
+        dom.marginCushionStatusBadge.textContent = '✅ EXCELLENT BUFFER (SAFE)';
+        dom.marginCushionStatusBadge.className = 'badge-cushion badge-cushion-safe font-mono';
+      } else if (ratio >= 2.0) {
+        dom.marginCushionStatusBadge.textContent = '⚡ ADEQUATE BUFFER';
+        dom.marginCushionStatusBadge.className = 'badge-cushion badge-cushion-warn font-mono';
+      } else if (ratio >= 1.0) {
+        dom.marginCushionStatusBadge.textContent = '⚠️ TIGHT MARGIN';
+        dom.marginCushionStatusBadge.className = 'badge-cushion badge-cushion-danger font-mono';
+      } else {
+        dom.marginCushionStatusBadge.textContent = '🛑 LOW MARGIN (<1.0x)';
+        dom.marginCushionStatusBadge.className = 'badge-cushion badge-cushion-danger font-mono';
+      }
+    }
+  }
+
+  function updateSellingSwitchUI(enabled) {
+    state.sellingEnabled = enabled;
+    if (dom.sellingMasterToggleBtn) {
+      dom.sellingMasterToggleBtn.className = `btn-selling-toggle ${enabled ? 'selling-on' : 'selling-off'}`;
+      dom.sellingMasterToggleBtn.title = enabled ? 'Click to PAUSE Option Selling' : 'Click to ACTIVATE Option Selling';
+    }
+    if (dom.sellingToggleDot) {
+      dom.sellingToggleDot.textContent = enabled ? '🟢' : '🔴';
+    }
+    if (dom.sellingToggleText) {
+      dom.sellingToggleText.textContent = enabled ? 'SELLING: ON' : 'SELLING: OFF (PAUSED)';
+    }
+    if (dom.sellingStatusBanner) {
+      dom.sellingStatusBanner.className = `selling-status-banner ${enabled ? 'banner-selling-on' : 'banner-selling-off'}`;
+    }
+    if (dom.sellingBannerIcon) {
+      dom.sellingBannerIcon.textContent = enabled ? '🟢' : '⏸️';
+    }
+    if (dom.sellingBannerTitle) {
+      dom.sellingBannerTitle.textContent = enabled ? 'OPTION SELLING IS ACTIVE:' : 'OPTION SELLING IS PAUSED (OFF):';
+    }
+    if (dom.sellingBannerDesc) {
+      dom.sellingBannerDesc.textContent = enabled
+        ? 'Strangle sell orders & Saturday auto-scheduler are authorized. Live option scanner, positions tracking & TP/SL monitoring are running.'
+        : 'Option selling is turned OFF. No new sell trades will be opened. Live option scanner, positions tracking & TP/SL risk monitors remain 100% active.';
+    }
+
+    if (!enabled && dom.strangleDeployBtn) {
+      dom.strangleDeployBtn.disabled = true;
+      dom.strangleDeployBtn.innerHTML = '<span class="btn-icon">⏸️</span> SELLING PAUSED (TURN ON TO DEPLOY)';
+    }
+  }
+
+  async function toggleSellingSwitch(enable) {
+    initAudio();
+    try {
+      const res = await apiFetch('/api/strategy/monthly-strangle/selling-toggle', {
+        method: 'POST',
+        body: JSON.stringify({ enabled: enable }),
+      });
+      if (res && res.ok) {
+        state.sellingEnabled = res.selling_enabled;
+        updateSellingSwitchUI(res.selling_enabled);
+        if (res.selling_enabled) {
+          playSound('order');
+          showToast('🟢 OPTION SELLING ACTIVATED: Safe strangle sells authorized. Scanner & TP/SL monitoring running.', 'success', 4000);
+        } else {
+          playSound('exit');
+          showToast('⏸️ OPTION SELLING PAUSED: No new strangle trades will be opened. Option Scanner & Risk monitors remain 100% active.', 'warning', 5000);
+        }
+        fetchStranglePreview();
+      }
+    } catch (err) {
+      showToast(`Selling toggle failed: ${err.message}`, 'error');
+    }
+  }
+
+  async function toggleStrangleScheduler(enabled) {
+    try {
+      const res = await apiFetch('/api/strategy/monthly-strangle/scheduler', {
+        method: 'POST',
+        body: JSON.stringify({ enabled }),
+      });
+      if (res && res.success) {
+        showToast(
+          enabled
+            ? '⏰ Auto-Scheduler ENABLED: Strangle will auto-execute on 1st & next Saturday 00:00 IST!'
+            : '⏰ Auto-Scheduler DISABLED.',
+          'info',
+          4000
+        );
+        fetchStranglePreview();
+      }
+    } catch (err) {
+      showToast(`Scheduler toggle failed: ${err.message}`, 'error', 5000);
+      if (dom.strangleSchedulerToggle) {
+        dom.strangleSchedulerToggle.checked = !enabled;
+      }
+    }
+  }
+
+  async function deployStrangleNow() {
+    if (!state.isConnected) {
+      showToast('Please connect API credentials before deploying Strangle.', 'warning', 4000);
+      return;
+    }
+
+    if (!state.sellingEnabled) {
+      showToast('Option Selling is currently PAUSED (OFF). Turn ON the Option Selling switch above to deploy trades.', 'warning', 5000);
+      return;
+    }
+
+    const lots = parseInt(dom.strangleLotsInput ? dom.strangleLotsInput.value : '100', 10) || 100;
+    const btcSize = (lots * 0.001).toFixed(3);
+
+    const callSym = dom.strangleCallSymbol ? dom.strangleCallSymbol.textContent.trim() : 'Call';
+    const putSym = dom.stranglePutSymbol ? dom.stranglePutSymbol.textContent.trim() : 'Put';
+
+    const confirmMsg = 
+      `⚡ CONFIRM INSTANT STRANGLE DEPLOY\n\n` +
+      `• Instrument: BTC Monthly OTM Strangle\n` +
+      `• Leg 1: SELL ${callSym} (${lots} Lots / ${btcSize} BTC)\n` +
+      `• Leg 2: SELL ${putSym} (${lots} Lots / ${btcSize} BTC)\n` +
+      `• Slippage Protection: Marketable Midpoint Limit Orders\n` +
+      `• Target Profit: +20% of Credit (Auto-Monitored 24/7)\n` +
+      `• Dynamic Stop-Loss: 40% Loss Buffer (Auto-Monitored 24/7)\n\n` +
+      `Execute both legs simultaneously on Delta Exchange?`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+
+    try {
+      dom.strangleDeployBtn.disabled = true;
+      dom.strangleDeployBtn.innerHTML = '<span class="btn-spinner"></span> EXECUTING BOTH LEGS...';
+
+      const res = await apiFetch('/api/strategy/monthly-strangle/execute', {
+        method: 'POST',
+        body: JSON.stringify({ lots }),
+      });
+
+      if (res && res.success) {
+        playSound('order');
+        showToast(`🎉 Monthly Strangle Deployed! Group: ${res.group?.name || 'Active'}`, 'success', 6000);
+        await syncStrategyGroups();
+        await refreshPositions();
+        await refreshHistory();
+        await fetchStranglePreview();
+      } else {
+        playSound('error');
+        showToast(`Strangle deploy failed: ${res?.error || 'Unknown error'}`, 'error', 6000);
+      }
+    } catch (err) {
+      playSound('error');
+      showToast(`Strangle deploy error: ${err.message}`, 'error', 6000);
+    } finally {
+      if (dom.strangleDeployBtn) {
+        dom.strangleDeployBtn.disabled = false;
+        fetchStranglePreview();
+      }
+    }
+  }
+
   async function refreshHistory() {
     try {
       const data = await apiFetch('/api/history');
@@ -1678,29 +2119,64 @@
       if (!history.length) {
         dom.historyBody.innerHTML = `
           <tr class="empty-mini-row">
-            <td colspan="5">No order submissions logged in this session.</td>
+            <td colspan="5">No order or strategy submissions logged in audit history.</td>
           </tr>
         `;
         return;
       }
 
+      // Calculate Total Lifetime Booked Profit from history records
+      let totalProfitBooked = 0;
+      history.forEach((item) => {
+        if (item.realized_profit != null && Number.isFinite(Number(item.realized_profit))) {
+          totalProfitBooked += Number(item.realized_profit);
+        } else {
+          const side = String(item.side || '').toUpperCase();
+          const status = String(item.status || '');
+          const orderType = String(item.order_type || '');
+          if (side.includes('PROFIT') || orderType.includes('target') || status.includes('Target Profit Booked')) {
+            const match = (status + ' ' + (item.price || '')).match(/\+\$?([\d.]+)/);
+            if (match && match[1]) {
+              totalProfitBooked += parseFloat(match[1]);
+            }
+          }
+        }
+      });
+
+      if (dom.totalLifetimeProfitBadge) {
+        const sign = totalProfitBooked >= 0 ? '+' : '';
+        dom.totalLifetimeProfitBadge.textContent = `🏆 TOTAL PROFIT BOOKED: ${sign}$${totalProfitBooked.toFixed(2)} USD`;
+      }
+
       dom.historyBody.innerHTML = history
         .map((item) => {
           let statusTag = 'status-submitted';
-          if (String(item.status).toLowerCase().includes('reject') || String(item.status).toLowerCase().includes('fail')) {
+          const lowerStatus = String(item.status || '').toLowerCase();
+          if (lowerStatus.includes('reject') || lowerStatus.includes('fail')) {
             statusTag = 'status-rejected';
-          } else if (String(item.status).toLowerCase().includes('exit')) {
+          } else if (lowerStatus.includes('target') || lowerStatus.includes('profit') || lowerStatus.includes('booked')) {
+            statusTag = 'status-profit';
+          } else if (lowerStatus.includes('sl') || lowerStatus.includes('stop')) {
+            statusTag = 'status-sl';
+          } else if (lowerStatus.includes('exit') || lowerStatus.includes('close')) {
             statusTag = 'status-exit';
           }
 
           const side = String(item.side || '—').toUpperCase();
-          const sideColor = side === 'BUY' ? 'color:#34d399' : side === 'SELL' ? 'color:#f87171' : '';
+          let sideStyle = '';
+          if (side.includes('BUY') || side.includes('PROFIT') || side.includes('TARGET')) {
+            sideStyle = 'color:#34d399; font-weight:700;';
+          } else if (side.includes('SELL') || side.includes('SL') || side.includes('LOSS')) {
+            sideStyle = 'color:#f87171; font-weight:700;';
+          } else if (side.includes('CLOSE')) {
+            sideStyle = 'color:#fbbf24; font-weight:700;';
+          }
 
           return `
             <tr>
               <td>${escapeHtml(item.time)}</td>
               <td><strong>${escapeHtml(item.symbol)}</strong></td>
-              <td style="${sideColor}">${escapeHtml(side)}</td>
+              <td style="${sideStyle}">${escapeHtml(side)}</td>
               <td>${escapeHtml(item.quantity)}</td>
               <td><span class="status-tag ${statusTag}">${escapeHtml(item.status)}</span></td>
             </tr>
@@ -1878,13 +2354,19 @@
   async function fetchWalletBalance() {
     if (!state.isConnected) {
       dom.walletPill.style.display = 'none';
+      state.walletAvailable = 0;
+      state.walletEquity = 0;
+      updateMarginCushionGuard();
       return;
     }
     try {
       const data = await apiFetch('/api/wallet');
       if (data.connected) {
+        state.walletAvailable = Number(data.available) || 0;
+        state.walletEquity = Number(data.equity) || 0;
         dom.walletPill.style.display = 'flex';
         dom.walletLabel.textContent = `EQUITY: $${formatMoney(data.equity)} | AVAIL: $${formatMoney(data.available)}`;
+        updateMarginCushionGuard();
       }
     } catch (_) {
       // Quietly continue if wallet balance call encounters API delay
@@ -2055,6 +2537,65 @@
       dom.groupModalSaveBtn.addEventListener('click', saveStrategyGroup);
     }
 
+    // Edit Strategy Group modal triggers
+    if (dom.editGroupModalCloseBtn) {
+      dom.editGroupModalCloseBtn.addEventListener('click', closeEditGroupModal);
+    }
+    if (dom.editGroupModalCancelBtn) {
+      dom.editGroupModalCancelBtn.addEventListener('click', closeEditGroupModal);
+    }
+    if (dom.editGroupModalSaveBtn) {
+      dom.editGroupModalSaveBtn.addEventListener('click', saveEditedStrategyGroup);
+    }
+
+    // Monthly Strangle Strategy Module Listeners
+    if (dom.strangleLotsInput) {
+      dom.strangleLotsInput.addEventListener('input', () => {
+        const val = parseInt(dom.strangleLotsInput.value, 10) || 0;
+        document.querySelectorAll('.btn-quick-lot').forEach((btn) => {
+          btn.classList.toggle('active', parseInt(btn.dataset.lot, 10) === val);
+        });
+        updateMarginCushionGuard();
+        fetchStranglePreview();
+      });
+    }
+
+    document.querySelectorAll('.btn-quick-lot').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lotVal = btn.dataset.lot;
+        if (dom.strangleLotsInput) {
+          dom.strangleLotsInput.value = lotVal;
+        }
+        document.querySelectorAll('.btn-quick-lot').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateMarginCushionGuard();
+        fetchStranglePreview();
+      });
+    });
+
+    if (dom.strangleSchedulerToggle) {
+      dom.strangleSchedulerToggle.addEventListener('change', (e) => {
+        toggleStrangleScheduler(e.target.checked);
+      });
+    }
+
+    if (dom.strangleRefreshBtn) {
+      dom.strangleRefreshBtn.addEventListener('click', () => {
+        fetchStranglePreview();
+        showToast('Strangle market preview refreshed.', 'info', 1500);
+      });
+    }
+
+    if (dom.strangleDeployBtn) {
+      dom.strangleDeployBtn.addEventListener('click', deployStrangleNow);
+    }
+
+    if (dom.sellingMasterToggleBtn) {
+      dom.sellingMasterToggleBtn.addEventListener('click', () => {
+        toggleSellingSwitch(!state.sellingEnabled);
+      });
+    }
+
     // Environment change hint
     dom.envSelect.addEventListener('change', () => {
       showToast('Click "Save Credentials" to apply new environment.', 'info');
@@ -2066,16 +2607,18 @@
         closeOrderConfirmationModal();
         closeExitModal();
         closeGroupModal();
+        closeEditGroupModal();
       }
     });
 
-    [dom.orderModal, dom.exitModal, dom.groupModal].forEach((modal) => {
+    [dom.orderModal, dom.exitModal, dom.groupModal, dom.editGroupModal].forEach((modal) => {
       if (modal) {
         modal.addEventListener('click', (e) => {
           if (e.target === modal) {
             closeOrderConfirmationModal();
             closeExitModal();
             closeGroupModal();
+            closeEditGroupModal();
           }
         });
       }
@@ -2104,12 +2647,17 @@
     updateFeedStateDisplay();
     updateTicketState();
     refreshHistory();
+    updateMarginCushionGuard();
 
     // Auto-restore saved connection if present (survives browser refresh!)
     await restoreSavedConnection();
 
     // Auto-start live 1-second streaming scanner on load
     startScanner(true);
+
+    // Monthly Strangle initial preview & periodic 10s refresh
+    fetchStranglePreview();
+    setInterval(fetchStranglePreview, 10000);
   }
 
   // Run on DOM ready
