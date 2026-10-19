@@ -191,6 +191,14 @@
     sellingBannerIcon: el('sellingBannerIcon'),
     sellingBannerTitle: el('sellingBannerTitle'),
     sellingBannerDesc: el('sellingBannerDesc'),
+    // Strangle Live Execution & Next Entry Tracker
+    strangleExecutionTracker: el('strangleExecutionTracker'),
+    trackerBadge: el('trackerBadge'),
+    trackerHeadline: el('trackerHeadline'),
+    trackerCountdown: el('trackerCountdown'),
+    trackerDetailRow: el('trackerDetailRow'),
+    trackerDetailIcon: el('trackerDetailIcon'),
+    trackerDetailText: el('trackerDetailText'),
     // Margin Cushion Safety Guard & Lifetime Total Profit Badge
     totalLifetimeProfitBadge: el('totalLifetimeProfitBadge'),
     strangleMarginGuardBox: el('strangleMarginGuardBox'),
@@ -386,17 +394,13 @@
     state.isScanning = true;
     updateFeedStateDisplay();
     fetchChainSnapshot(); // initial instant cycle
-    if (state.isConnected) {
-      refreshPositions();
-    }
+    refreshPositions(); // initial instant positions check
 
     // Set 1-second continuous scanning interval
     state.scanTimer = setInterval(() => {
       fetchChainSnapshot();
-      // Continuously refresh account positions every second if connected
-      if (state.isConnected) {
-        refreshPositions();
-      }
+      // Continuously refresh account positions every second
+      refreshPositions();
       // Sync multi-leg strategy groups across devices every 2 cycles (2s)
       if (state.scanCycles % 2 === 0) {
         syncStrategyGroups();
@@ -1059,23 +1063,52 @@
 
   // --- Positions & Strategy Baskets ---
   async function refreshPositions() {
-    if (!state.isConnected) {
-      dom.positionsBody.innerHTML = `
-        <tr class="empty-mini-row">
-          <td colspan="9">Connect credentials to view open account positions.</td>
-        </tr>
-      `;
-      state.currentPositions = [];
-      updateBatchActionBar();
-      if (dom.portfolioUpnlBadge) dom.portfolioUpnlBadge.style.display = 'none';
-      return;
-    }
-
     if (state.isFetchingPositions) return;
     state.isFetchingPositions = true;
 
     try {
       const data = await apiFetch('/api/positions');
+      if (!data.connected) {
+        state.isConnected = false;
+        dom.positionsBody.innerHTML = `
+          <tr class="empty-mini-row">
+            <td colspan="9">Connect credentials to view open account positions.</td>
+          </tr>
+        `;
+        state.currentPositions = [];
+        updateBatchActionBar();
+        if (dom.portfolioUpnlBadge) dom.portfolioUpnlBadge.style.display = 'none';
+        return;
+      }
+
+      // Auto-heal connection state in UI if server is connected
+      if (!state.isConnected) {
+        state.isConnected = true;
+        dom.connBeacon.className = 'status-beacon cyan';
+        dom.connLabel.textContent = 'API CONNECTED · RAM SECURED';
+        updateTicketState();
+      }
+
+      // Check for Delta Exchange IP Whitelist restriction
+      if (data.error && data.error.includes('ip_not_whitelisted')) {
+        dom.positionsBody.innerHTML = `
+          <tr class="empty-mini-row">
+            <td colspan="9" style="padding: 16px; text-align: left; background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444;">
+              <div style="font-size: 13px; font-weight: 800; color: #f87171; margin-bottom: 6px;">🔒 DELTA IP RESTRICTION ACTIVE (ip_not_whitelisted_for_api_key)</div>
+              <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6;">
+                Delta Exchange rejected requests from this server IP address.<br>
+                <strong>⚡ Instant Fix (Recommended):</strong> Use the local scanner at <a href="http://127.0.0.1:5000" target="_blank" style="color: #38bdf8; text-decoration: underline; font-weight: 700;">http://127.0.0.1:5000</a> (100% verified &amp; working on your laptop!)<br>
+                <strong>☁️ To allow Render Cloud:</strong> In Delta Exchange &rarr; Profile &rarr; <em>API Keys</em> &rarr; Edit your key &rarr; Uncheck <em>"Restrict access to trusted IPs only"</em>.
+              </div>
+            </td>
+          </tr>
+        `;
+        state.currentPositions = [];
+        updateBatchActionBar();
+        if (dom.portfolioUpnlBadge) dom.portfolioUpnlBadge.style.display = 'none';
+        return;
+      }
+
       const positions = (data.positions || []).filter((p) => Number(p.size) !== 0);
       state.currentPositions = positions;
 
@@ -1188,9 +1221,20 @@
       fetchWalletBalance();
     } catch (err) {
       console.warn('Position refresh error:', err);
+      const isIpErr = err.message && err.message.includes('ip_not_whitelisted');
       dom.positionsBody.innerHTML = `
         <tr class="empty-mini-row">
-          <td colspan="9">Position error: ${escapeHtml(err.message)}</td>
+          <td colspan="9" style="padding: 16px; text-align: left; ${isIpErr ? 'background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444;' : ''}">
+            ${isIpErr
+              ? `<div style="font-size: 13px; font-weight: 800; color: #f87171; margin-bottom: 6px;">🔒 DELTA IP RESTRICTION ACTIVE (ip_not_whitelisted_for_api_key)</div>
+                 <div style="font-size: 12px; color: #cbd5e1; line-height: 1.6;">
+                   Delta Exchange rejected requests from this server IP address.<br>
+                   <strong>⚡ Instant Fix:</strong> Run on your laptop at <a href="http://127.0.0.1:5000" target="_blank" style="color: #38bdf8; text-decoration: underline; font-weight: 700;">http://127.0.0.1:5000</a> (100% working!)<br>
+                   <strong>☁️ For Render:</strong> In Delta Exchange &rarr; Profile &rarr; API Keys &rarr; Edit key &rarr; Uncheck "Restrict access to trusted IPs only".
+                 </div>`
+              : `Position error: ${escapeHtml(err.message)}`
+            }
+          </td>
         </tr>
       `;
     } finally {
@@ -1912,15 +1956,18 @@
       dom.strangleSchedulerBadge.classList.toggle('badge-scheduler-on', isSched);
     }
 
-    // Golden Rule Check: Is there an active Strangle group?
-    const hasActiveStrangle = data.has_active_trade != null ? data.has_active_trade : !!data.active_strangle;
-    const activeStrangleObj = data.active_trade || data.active_strangle;
+    // Golden Rule Check: Is there an active Strangle group or monitored strategy?
+    const activeFromState = (state.strategyGroups || []).find((g) => g.status === 'MONITORING' && g.id !== 'grp_1791791406521');
+    const activeStrangleObj = data.active_trade || activeFromState;
+    const hasActiveStrangle = !!activeStrangleObj;
+    state.lastStrangleData = data;
+
     if (dom.strangleActiveAlert) {
       dom.strangleActiveAlert.style.display = hasActiveStrangle ? 'flex' : 'none';
       if (hasActiveStrangle && activeStrangleObj && activeStrangleObj.name) {
         const alertText = dom.strangleActiveAlert.querySelector('.alert-text');
         if (alertText) {
-          const mtmVal = Number(activeStrangleObj.current_mtm || 0);
+          const mtmVal = Number(activeStrangleObj.current_mtm != null ? activeStrangleObj.current_mtm : computeGroupMtm(activeStrangleObj));
           const mtmSign = mtmVal >= 0 ? '+$' : '-$';
           const formattedMtm = `${mtmSign}${Math.abs(mtmVal).toFixed(2)}`;
           alertText.innerHTML = `<strong>GOLDEN RULE ACTIVE:</strong> Strategy <code>${escapeHtml(activeStrangleObj.name)}</code> is currently open (MTM: ${formattedMtm}). Next trade locked until exit.`;
@@ -1931,6 +1978,9 @@
     // Sync Option Selling Master Switch
     const isSellingOn = data.selling_enabled != null ? !!data.selling_enabled : true;
     updateSellingSwitchUI(isSellingOn);
+
+    // Update Live Execution & Next Entry Schedule Tracker
+    updateStrangleExecutionTracker(isSellingOn, isSched, hasActiveStrangle, activeStrangleObj, data.next_entry);
 
     // Update Live Margin & Capital Cushion Guard
     updateMarginCushionGuard();
@@ -2072,25 +2122,114 @@
     if (dom.sellingToggleText) {
       dom.sellingToggleText.textContent = enabled ? 'SELLING: ON' : 'SELLING: OFF (PAUSED)';
     }
-    if (dom.sellingStatusBanner) {
-      dom.sellingStatusBanner.className = `selling-status-banner ${enabled ? 'banner-selling-on' : 'banner-selling-off'}`;
-    }
-    if (dom.sellingBannerIcon) {
-      dom.sellingBannerIcon.textContent = enabled ? '🟢' : '⏸️';
-    }
-    if (dom.sellingBannerTitle) {
-      dom.sellingBannerTitle.textContent = enabled ? 'OPTION SELLING IS ACTIVE:' : 'OPTION SELLING IS PAUSED (OFF):';
-    }
-    if (dom.sellingBannerDesc) {
-      dom.sellingBannerDesc.textContent = enabled
-        ? 'Strangle sell orders & Saturday auto-scheduler are authorized. Live option scanner, positions tracking & TP/SL monitoring are running.'
-        : 'Option selling is turned OFF. No new sell trades will be opened. Live option scanner, positions tracking & TP/SL risk monitors remain 100% active.';
-    }
 
     if (!enabled && dom.strangleDeployBtn) {
       dom.strangleDeployBtn.disabled = true;
       dom.strangleDeployBtn.innerHTML = '<span class="btn-icon">⏸️</span> SELLING PAUSED (TURN ON TO DEPLOY)';
     }
+
+    // Refresh execution tracker if strangle preview data is cached
+    if (state.lastStrangleData) {
+      const activeFromState = (state.strategyGroups || []).find((g) => g.status === 'MONITORING' && g.id !== 'grp_1791791406521');
+      const activeObj = state.lastStrangleData.active_trade || activeFromState;
+      const isSched = !!(state.lastStrangleData.scheduler && state.lastStrangleData.scheduler.enabled);
+      updateStrangleExecutionTracker(enabled, isSched, !!activeObj, activeObj, state.lastStrangleData.next_entry);
+    }
+  }
+
+  function updateStrangleExecutionTracker(isSellingOn, isSched, hasActiveStrangle, activeStrangleObj, nextEntry) {
+    if (!dom.strangleExecutionTracker) return;
+
+    if (!isSellingOn) {
+      // State 3: Option Selling is PAUSED (OFF)
+      dom.strangleExecutionTracker.className = 'strangle-execution-tracker tracker-state-paused';
+      if (dom.trackerBadge) {
+        dom.trackerBadge.className = 'tracker-badge badge-paused';
+        dom.trackerBadge.textContent = '⏸️ SELLING PAUSED (OFF)';
+      }
+      if (dom.trackerHeadline) {
+        dom.trackerHeadline.textContent = 'OPTION SELLING IS TURNED OFF';
+      }
+      if (dom.trackerCountdown) {
+        dom.trackerCountdown.className = 'tracker-timer-pill font-mono';
+        dom.trackerCountdown.textContent = 'Scheduler Paused';
+      }
+      if (dom.trackerDetailIcon) dom.trackerDetailIcon.textContent = '⚠️';
+      if (dom.trackerDetailText) {
+        dom.trackerDetailText.innerHTML = 'Option selling filhal <strong>OFF</strong> hai. Automated Saturday entries activate karne ke liye upar right side me <strong>"SELLING: OFF"</strong> button par click karke ON kijiye.';
+      }
+
+      if (dom.sellingStatusBanner) {
+        dom.sellingStatusBanner.className = 'selling-status-banner banner-selling-off';
+      }
+      if (dom.sellingBannerIcon) dom.sellingBannerIcon.textContent = '⏸️';
+      if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = 'OPTION SELLING IS PAUSED (OFF):';
+      if (dom.sellingBannerDesc) dom.sellingBannerDesc.textContent = 'Option selling is turned OFF. No new sell trades will be opened. Click the toggle button above to turn ON.';
+      return;
+    }
+
+    if (hasActiveStrangle && activeStrangleObj) {
+      // State 1: Active Trade Running (Golden Rule: Zero Overlap)
+      const grpName = activeStrangleObj.name || 'BTC Monthly Strangle';
+      const mtmVal = Number(activeStrangleObj.current_mtm != null ? activeStrangleObj.current_mtm : computeGroupMtm(activeStrangleObj));
+      const mtmSign = mtmVal >= 0 ? '+$' : '-$';
+      const formattedMtm = `${mtmSign}${Math.abs(mtmVal).toFixed(2)}`;
+      const tpVal = activeStrangleObj.target != null ? `+$${Number(activeStrangleObj.target).toFixed(2)}` : 'Set in Group';
+      const slVal = activeStrangleObj.stopLoss != null ? `-$${Number(activeStrangleObj.stopLoss).toFixed(2)}` : 'Set in Group';
+
+      dom.strangleExecutionTracker.className = 'strangle-execution-tracker tracker-state-running';
+      if (dom.trackerBadge) {
+        dom.trackerBadge.className = 'tracker-badge badge-running';
+        dom.trackerBadge.textContent = '🟢 TRADE IN PROGRESS';
+      }
+      if (dom.trackerHeadline) {
+        dom.trackerHeadline.textContent = `${grpName} (24/7 LIVE MONITORING)`;
+      }
+      if (dom.trackerCountdown) {
+        dom.trackerCountdown.className = `tracker-timer-pill font-mono pill-running ${mtmVal >= 0 ? 'pnl-positive' : 'pnl-negative'}`;
+        dom.trackerCountdown.textContent = `MTM: ${formattedMtm} | Target: ${tpVal} | SL: ${slVal}`;
+      }
+      if (dom.trackerDetailIcon) dom.trackerDetailIcon.textContent = '🛡️';
+      if (dom.trackerDetailText) {
+        dom.trackerDetailText.innerHTML = `<strong>GOLDEN RULE ACTIVE:</strong> Trade chal raha hai aur 24/7 monitor ho raha hai. Agli nayi entry tabhi hogi jab ye trade Target Profit (${tpVal}) ya Stop-Loss (${slVal}) hit karke exit na ho jaye (Zero Overlap Rule).`;
+      }
+
+      if (dom.sellingStatusBanner) {
+        dom.sellingStatusBanner.className = 'selling-status-banner banner-selling-on';
+      }
+      if (dom.sellingBannerIcon) dom.sellingBannerIcon.textContent = '🟢';
+      if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = '🟢 STRANGLE TRADE ACTIVE & MONITORING:';
+      if (dom.sellingBannerDesc) dom.sellingBannerDesc.textContent = `Active trade '${grpName}' chal raha hai (Live MTM: ${formattedMtm}). Zero-Overlap rule active hai; agli new entry exit ke baad unlock hogi.`;
+      return;
+    }
+
+    // State 2: Selling is ON, Waiting for Saturday 00:00 IST Schedule
+    const nextTimeStr = (nextEntry && nextEntry.datetime_ist) ? nextEntry.datetime_ist : 'Every Saturday @ 00:00:00 IST';
+    const remainingStr = (nextEntry && nextEntry.remaining_human) ? `⏳ ${nextEntry.remaining_human} remaining` : '⏰ Next Saturday Window';
+
+    dom.strangleExecutionTracker.className = 'strangle-execution-tracker tracker-state-waiting';
+    if (dom.trackerBadge) {
+      dom.trackerBadge.className = 'tracker-badge';
+      dom.trackerBadge.textContent = '⏰ NEXT ENTRY SCHEDULE';
+    }
+    if (dom.trackerHeadline) {
+      dom.trackerHeadline.textContent = nextTimeStr;
+    }
+    if (dom.trackerCountdown) {
+      dom.trackerCountdown.className = 'tracker-timer-pill font-mono';
+      dom.trackerCountdown.textContent = remainingStr;
+    }
+    if (dom.trackerDetailIcon) dom.trackerDetailIcon.textContent = '✅';
+    if (dom.trackerDetailText) {
+      dom.trackerDetailText.innerHTML = `<strong>SELLING ENGINE ACTIVE:</strong> Bot 24/7 Cloud par ready hai. Agli automatic entry <strong>Saturday 00:00 IST</strong> window par execute hogi. Agar abhi turant entry leni hai toh neeche <strong>"1-Click Instant Deploy"</strong> use kar sakte hain.`;
+    }
+
+    if (dom.sellingStatusBanner) {
+      dom.sellingStatusBanner.className = 'selling-status-banner banner-selling-on';
+    }
+    if (dom.sellingBannerIcon) dom.sellingBannerIcon.textContent = '⏰';
+    if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = '🟢 OPTION SELLING ACTIVE · NEXT ENTRY: SATURDAY 00:00 IST:';
+    if (dom.sellingBannerDesc) dom.sellingBannerDesc.textContent = `Selling Engine ready hai (${(nextEntry && nextEntry.remaining_human) ? nextEntry.remaining_human + ' baaki' : 'Saturday window'}). Option Scanner, Wallet & Risk monitors 100% live hain.`;
   }
 
   async function toggleSellingSwitch(enable) {
@@ -2450,20 +2589,18 @@
 
   // --- Live Wallet Margin Fetcher ---
   async function fetchWalletBalance() {
-    if (!state.isConnected) {
-      dom.walletPill.style.display = 'none';
-      state.walletAvailable = 0;
-      state.walletEquity = 0;
-      updateMarginCushionGuard();
-      return;
-    }
     try {
       const data = await apiFetch('/api/wallet');
-      if (data.connected) {
+      if (data.connected && data.balances) {
         state.walletAvailable = Number(data.available) || 0;
         state.walletEquity = Number(data.equity) || 0;
         dom.walletPill.style.display = 'flex';
         dom.walletLabel.textContent = `EQUITY: $${formatMoney(data.equity)} | AVAIL: $${formatMoney(data.available)}`;
+        updateMarginCushionGuard();
+      } else if (!data.connected) {
+        dom.walletPill.style.display = 'none';
+        state.walletAvailable = 0;
+        state.walletEquity = 0;
         updateMarginCushionGuard();
       }
     } catch (_) {

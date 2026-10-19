@@ -26,6 +26,12 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
+import socket
+try:
+    import urllib3.util.connection as urllib3_cn
+    urllib3_cn.allowed_gai_family = lambda: socket.AF_INET
+except Exception:
+    pass
 from flask import Flask, jsonify, render_template, request, session, send_from_directory
 
 # Configure logging
@@ -325,7 +331,11 @@ class DeltaRESTClient:
 
         if not response.ok or (isinstance(data, dict) and data.get("success") is False):
             err = data.get("error", {}) if isinstance(data, dict) else {}
-            err_msg = err.get("message") or err.get("code") or response.text[:200]
+            err_code = err.get("code") or ""
+            err_msg = err.get("message") or err_code or response.text[:200]
+            client_ip = (err.get("context") or {}).get("client_ip")
+            if client_ip:
+                err_msg = f"{err_msg} [IP seen by Delta: {client_ip}]"
             raise DeltaAPIError(f"Delta error: {err_msg}")
         return data.get("result", data) if isinstance(data, dict) else data
 
@@ -988,7 +998,9 @@ def api_positions():
             total_pnl_pct=total_pnl_pct,
         )
     except DeltaAPIError as exc:
-        return jsonify(connected=True, positions=[], total_upnl=0.0, error=str(exc)), 502
+        err_msg = str(exc)
+        logger.warning("DeltaAPIError in api_positions: %s", err_msg)
+        return jsonify(connected=True, positions=[], total_upnl=0.0, error=err_msg), 200
     except Exception as exc:
         return jsonify(connected=True, positions=[], total_upnl=0.0, error=str(exc)), 500
 
@@ -1019,7 +1031,9 @@ def api_wallet():
 
         return jsonify(connected=True, asset=asset, equity=total, available=avail, balances=balances)
     except DeltaAPIError as exc:
-        return jsonify(connected=True, equity=0.0, available=0.0, error=str(exc)), 502
+        err_msg = str(exc)
+        logger.warning("DeltaAPIError in api_wallet: %s", err_msg)
+        return jsonify(connected=True, equity=0.0, available=0.0, error=err_msg), 200
 @app.get("/api/my-ip")
 def api_my_ip():
     """Return the outbound public IP of this server."""
@@ -1484,6 +1498,30 @@ def select_monthly_strangle_strikes(environment="india", target_expiry=None) -> 
     }
 
 
+def get_next_saturday_ist() -> Dict[str, Any]:
+    """Calculate the next Saturday 00:00 IST execution window and countdown."""
+    now_utc = datetime.now(timezone.utc)
+    ist_offset = timedelta(hours=5, minutes=30)
+    now_ist = now_utc + ist_offset
+    # Weekday: Monday is 0, ..., Saturday is 5, Sunday is 6
+    days_ahead = 5 - now_ist.weekday()
+    if days_ahead < 0 or (days_ahead == 0 and (now_ist.hour > 0 or now_ist.minute > 20)):
+        days_ahead += 7
+    next_sat = now_ist.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
+    diff = next_sat - now_ist
+    total_seconds = max(0, int(diff.total_seconds()))
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+    return {
+        "current_ist": now_ist.strftime("%A, %d-%b-%Y %H:%M:%S IST"),
+        "datetime_ist": next_sat.strftime("%A, %d-%b-%Y @ 00:00:00 IST"),
+        "date_str": next_sat.strftime("%d-%b-%Y"),
+        "remaining_seconds": total_seconds,
+        "remaining_human": f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m",
+    }
+
+
 def calculate_strangle_math(call_price: float, put_price: float, lots: int) -> Dict[str, Any]:
     """Auto-Scaled Lot Sizing, TP (+20%) and Dynamic SL Mathematics per Blueprint."""
     btc_size = round(lots * 0.001, 4)
@@ -1784,8 +1822,8 @@ def run_strategy_monitor_daemon():
                     sched = load_strangle_scheduler()
                     if sched.get("enabled") and sched.get("selling_enabled", True):
                         all_groups = load_server_strategy_groups()
-                        # Golden Rule: Check if a strangle trade is currently active (MONITORING)
-                        has_active = any(g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING" for g in all_groups)
+                        # Golden Rule: Check if any trade is currently active (MONITORING)
+                        has_active = any(g.get("status") == "MONITORING" for g in all_groups)
                         if not has_active:
                             now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
                             # Saturday is weekday 5
@@ -1866,7 +1904,11 @@ def api_strangle_preview():
 
         with GROUPS_LOCK:
             groups = load_server_strategy_groups()
-        active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
+        active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and (g.get("strategy_type") == "MONTHLY_STRANGLE" or len(g.get("positions", [])) >= 2)), None)
+        if not active_strangle:
+            active_strangle = next((g for g in groups if g.get("status") == "MONITORING"), None)
+
+        next_entry = get_next_saturday_ist()
 
         return jsonify(
             ok=True,
@@ -1877,6 +1919,7 @@ def api_strangle_preview():
             scheduler=scheduler,
             default_lots=default_lots,
             selling_enabled=scheduler.get("selling_enabled", True),
+            next_entry=next_entry,
         )
     except Exception as exc:
         logger.exception("Error in strangle preview")
@@ -1914,9 +1957,11 @@ def api_strangle_execute():
     # Golden Rule: No overlapping active strangle trades
     with GROUPS_LOCK:
         groups = load_server_strategy_groups()
-    active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
+    active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and (g.get("strategy_type") == "MONTHLY_STRANGLE" or len(g.get("positions", [])) >= 2)), None)
+    if not active_strangle:
+        active_strangle = next((g for g in groups if g.get("status") == "MONITORING"), None)
     if active_strangle:
-        return jsonify(error=f"Golden Rule Active: Strangle '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
+        return jsonify(error=f"Golden Rule Active: Strategy '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
 
     try:
         custom_tp = safe_float(data.get("custom_tp")) if data.get("custom_tp") is not None else None
