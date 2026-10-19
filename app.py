@@ -79,49 +79,71 @@ def ensure_static_assets():
     target_js = os.path.join(static_js_dir, "app.js")
     target_css = os.path.join(static_css_dir, "style.css")
 
-    # If static/js/app.js exists, keep it as authoritative and sync to root js/ if root js/ exists
-    if os.path.isfile(target_js):
-        root_js_dir = os.path.join(base, "js")
-        if os.path.isdir(root_js_dir):
-            try:
-                import shutil
-                shutil.copy2(target_js, os.path.join(root_js_dir, "app.js"))
-            except Exception:
-                pass
-    else:
-        for candidate in [
-            os.path.join(base, "js", "app.js"),
-            os.path.join(base, "static", "js", "js", "app.js"),
-        ]:
-            if os.path.isfile(candidate):
-                try:
-                    import shutil
-                    shutil.copy2(candidate, target_js)
-                    break
-                except Exception:
-                    pass
+    # 1. Bidirectional Smart Sync for app.js (supports uploads to either root js/ or static/js/)
+    root_js = os.path.join(base, "js", "app.js")
+    if os.path.isfile(root_js) and os.path.isfile(target_js):
+        try:
+            with open(root_js, "r", encoding="utf-8", errors="ignore") as f1, open(target_js, "r", encoding="utf-8", errors="ignore") as f2:
+                r_text = f1.read()
+                t_text = f2.read()
+            import shutil
+            if "updateStrangleExecutionTracker" in r_text and "updateStrangleExecutionTracker" not in t_text:
+                shutil.copy2(root_js, target_js)
+            elif "updateStrangleExecutionTracker" in t_text and "updateStrangleExecutionTracker" not in r_text:
+                shutil.copy2(target_js, root_js)
+            elif os.path.getmtime(root_js) > os.path.getmtime(target_js):
+                shutil.copy2(root_js, target_js)
+            else:
+                shutil.copy2(target_js, root_js)
+        except Exception:
+            pass
+    elif os.path.isfile(root_js) and not os.path.isfile(target_js):
+        try:
+            import shutil
+            shutil.copy2(root_js, target_js)
+        except Exception:
+            pass
+    elif os.path.isfile(target_js) and not os.path.isfile(root_js):
+        try:
+            import shutil
+            root_js_dir = os.path.join(base, "js")
+            os.makedirs(root_js_dir, exist_ok=True)
+            shutil.copy2(target_js, root_js)
+        except Exception:
+            pass
 
-    # If static/css/style.css exists, keep it as authoritative and sync to root css/ if root css/ exists
-    if os.path.isfile(target_css):
-        root_css_dir = os.path.join(base, "css")
-        if os.path.isdir(root_css_dir):
-            try:
-                import shutil
-                shutil.copy2(target_css, os.path.join(root_css_dir, "style.css"))
-            except Exception:
-                pass
-    else:
-        for candidate in [
-            os.path.join(base, "css", "style.css"),
-            os.path.join(base, "static", "js", "css", "style.css"),
-        ]:
-            if os.path.isfile(candidate):
-                try:
-                    import shutil
-                    shutil.copy2(candidate, target_css)
-                    break
-                except Exception:
-                    pass
+    # 2. Bidirectional Smart Sync for style.css (supports uploads to either root css/ or static/css/)
+    root_css = os.path.join(base, "css", "style.css")
+    if os.path.isfile(root_css) and os.path.isfile(target_css):
+        try:
+            with open(root_css, "r", encoding="utf-8", errors="ignore") as f1, open(target_css, "r", encoding="utf-8", errors="ignore") as f2:
+                r_text = f1.read()
+                t_text = f2.read()
+            import shutil
+            if "strangle-execution-tracker" in r_text and "strangle-execution-tracker" not in t_text:
+                shutil.copy2(root_css, target_css)
+            elif "strangle-execution-tracker" in t_text and "strangle-execution-tracker" not in r_text:
+                shutil.copy2(target_css, root_css)
+            elif os.path.getmtime(root_css) > os.path.getmtime(target_css):
+                shutil.copy2(root_css, target_css)
+            else:
+                shutil.copy2(target_css, root_css)
+        except Exception:
+            pass
+    elif os.path.isfile(root_css) and not os.path.isfile(target_css):
+        try:
+            import shutil
+            shutil.copy2(root_css, target_css)
+        except Exception:
+            pass
+    elif os.path.isfile(target_css) and not os.path.isfile(root_css):
+        try:
+            import shutil
+            root_css_dir = os.path.join(base, "css")
+            os.makedirs(root_css_dir, exist_ok=True)
+            shutil.copy2(target_css, root_css)
+        except Exception:
+            pass
 
 
 try:
