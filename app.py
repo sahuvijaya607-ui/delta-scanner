@@ -70,45 +70,52 @@ def ensure_static_assets():
     os.makedirs(static_js_dir, exist_ok=True)
     os.makedirs(static_css_dir, exist_ok=True)
 
-    # Search candidates for app.js
-    for candidate in [
-        os.path.join(base, "static", "js", "js", "app.js"),
-        os.path.join(base, "js", "app.js"),
-        os.path.join(base, "static", "js", "app.js"),
-    ]:
-        if os.path.isfile(candidate):
-            try:
-                with open(candidate, "r", encoding="utf-8") as f:
-                    content = f.read()
-                if "btn-group-edit" in content:
-                    target = os.path.join(static_js_dir, "app.js")
-                    if os.path.abspath(candidate) != os.path.abspath(target):
-                        with open(target, "w", encoding="utf-8") as f:
-                            f.write(content)
-                        logger.info("Auto-synced app.js from %s to %s", candidate, target)
-                    break
-            except Exception as e:
-                logger.warning("Error inspecting candidate %s: %s", candidate, e)
+    target_js = os.path.join(static_js_dir, "app.js")
+    target_css = os.path.join(static_css_dir, "style.css")
 
-    # Search candidates for style.css
-    for candidate in [
-        os.path.join(base, "static", "js", "css", "style.css"),
-        os.path.join(base, "css", "style.css"),
-        os.path.join(base, "static", "css", "style.css"),
-    ]:
-        if os.path.isfile(candidate):
+    # If static/js/app.js exists, keep it as authoritative and sync to root js/ if root js/ exists
+    if os.path.isfile(target_js):
+        root_js_dir = os.path.join(base, "js")
+        if os.path.isdir(root_js_dir):
             try:
-                with open(candidate, "r", encoding="utf-8") as f:
-                    content = f.read()
-                if "btn-group-edit" in content:
-                    target = os.path.join(static_css_dir, "style.css")
-                    if os.path.abspath(candidate) != os.path.abspath(target):
-                        with open(target, "w", encoding="utf-8") as f:
-                            f.write(content)
-                        logger.info("Auto-synced style.css from %s to %s", candidate, target)
+                import shutil
+                shutil.copy2(target_js, os.path.join(root_js_dir, "app.js"))
+            except Exception:
+                pass
+    else:
+        for candidate in [
+            os.path.join(base, "js", "app.js"),
+            os.path.join(base, "static", "js", "js", "app.js"),
+        ]:
+            if os.path.isfile(candidate):
+                try:
+                    import shutil
+                    shutil.copy2(candidate, target_js)
                     break
-            except Exception as e:
-                logger.warning("Error inspecting candidate %s: %s", candidate, e)
+                except Exception:
+                    pass
+
+    # If static/css/style.css exists, keep it as authoritative and sync to root css/ if root css/ exists
+    if os.path.isfile(target_css):
+        root_css_dir = os.path.join(base, "css")
+        if os.path.isdir(root_css_dir):
+            try:
+                import shutil
+                shutil.copy2(target_css, os.path.join(root_css_dir, "style.css"))
+            except Exception:
+                pass
+    else:
+        for candidate in [
+            os.path.join(base, "css", "style.css"),
+            os.path.join(base, "static", "js", "css", "style.css"),
+        ]:
+            if os.path.isfile(candidate):
+                try:
+                    import shutil
+                    shutil.copy2(candidate, target_css)
+                    break
+                except Exception:
+                    pass
 
 
 try:
@@ -1243,7 +1250,16 @@ def load_server_strategy_groups() -> List[Dict[str, Any]]:
         with open(STRATEGY_GROUPS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
-                return [g for g in data if isinstance(g, dict) and g.get("status") == "MONITORING"]
+                # Filter out any groups that were already booked or closed in audit history
+                try:
+                    hist = load_persistent_history()
+                    archived_names = {str(h.get("symbol", "")).split(" (")[0].strip() for h in hist if h.get("symbol")}
+                    active = [g for g in data if isinstance(g, dict) and g.get("status") == "MONITORING" and g.get("name") not in archived_names]
+                    if len(active) != len(data):
+                        save_server_strategy_groups(active)
+                    return active
+                except Exception:
+                    return [g for g in data if isinstance(g, dict) and g.get("status") == "MONITORING"]
             return []
     except Exception as exc:
         logger.warning("Could not read strategy groups: %s", exc)
@@ -1801,9 +1817,11 @@ def api_delete_strategy_group(group_id):
 def api_strangle_preview():
     """Fetch live strike selection, math, and status for the Monthly Strangle strategy."""
     state = get_browser_state()
-    lots = int(safe_float(request.args.get("lots", 100), 100))
+    scheduler = load_strangle_scheduler()
+    default_lots = int(scheduler.get("lots", 100))
+    lots = int(safe_float(request.args.get("lots", default_lots), default_lots))
     if lots <= 0:
-        lots = 100
+        lots = default_lots
     try:
         selection = select_monthly_strangle_strikes(state["environment"])
         math_data = calculate_strangle_math(selection["call"]["mark"], selection["put"]["mark"], lots)
@@ -1811,7 +1829,6 @@ def api_strangle_preview():
         with GROUPS_LOCK:
             groups = load_server_strategy_groups()
         active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
-        scheduler = load_strangle_scheduler()
 
         return jsonify(
             ok=True,
@@ -1820,6 +1837,7 @@ def api_strangle_preview():
             has_active_trade=bool(active_strangle),
             active_trade=active_strangle,
             scheduler=scheduler,
+            default_lots=default_lots,
             selling_enabled=scheduler.get("selling_enabled", True),
         )
     except Exception as exc:
@@ -1902,6 +1920,18 @@ def api_strangle_scheduler():
         groups = load_server_strategy_groups()
     active_strangle = next((g for g in groups if g.get("strategy_type") == "MONTHLY_STRANGLE" and g.get("status") == "MONITORING"), None)
     return jsonify(scheduler=sched, has_active_trade=bool(active_strangle), active_trade=active_strangle)
+
+
+@app.post("/api/strategy/monthly-strangle/save-default-lots")
+def api_save_strangle_default_lots():
+    """Save user's preferred default lot size to disk permanently."""
+    data = request.get_json(silent=True) or {}
+    lots = max(1, int(safe_float(data.get("lots", 100), 100)))
+    sched = load_strangle_scheduler()
+    sched["lots"] = lots
+    save_strangle_scheduler(sched)
+    logger.info("Saved preferred default Strangle lots: %d", lots)
+    return jsonify(ok=True, lots=lots)
 
 
 if __name__ == "__main__":

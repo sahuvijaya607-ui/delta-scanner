@@ -477,7 +477,10 @@
           <!-- Configuration & Sizing Controls -->
           <div class="strangle-config-grid">
             <div class="input-group">
-              <label for="strangleLotsInput">LOT SIZING (1 LOT = 0.001 BTC)</label>
+              <div class="lots-label-row">
+                <label for="strangleLotsInput">LOT SIZING (1 LOT = 0.001 BTC)</label>
+                <span class="saved-lot-badge font-mono" id="savedLotBadge" style="display:none;">💾 SAVED: 100 LOTS</span>
+              </div>
               <div class="strangle-lots-wrapper">
                 <input type="number" id="strangleLotsInput" min="1" step="1" value="100" class="font-mono">
                 <div class="strangle-quick-lots">
@@ -487,6 +490,9 @@
                   <button type="button" class="btn-quick-lot" data-lot="500">500</button>
                   <button type="button" class="btn-quick-lot" data-lot="1000">1,000</button>
                 </div>
+                <button type="button" class="btn-save-lots" id="saveLotsBtn" title="Save this lot size as your permanent default">
+                  💾 SAVE LOT
+                </button>
               </div>
               <span class="input-subnote" id="strangleBtcSizeNote">Position Size: 0.100 BTC per leg</span>
             </div>

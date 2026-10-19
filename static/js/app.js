@@ -153,6 +153,8 @@
     // Monthly Strangle Strategy Module
     strangleLotsInput: el('strangleLotsInput'),
     strangleBtcSizeNote: el('strangleBtcSizeNote'),
+    saveLotsBtn: el('saveLotsBtn'),
+    savedLotBadge: el('savedLotBadge'),
     strangleSchedulerToggle: el('strangleSchedulerToggle'),
     strangleSchedulerStatusText: el('strangleSchedulerStatusText'),
     strangleSchedulerBadge: el('strangleSchedulerBadge'),
@@ -1492,7 +1494,7 @@
 
       // 1. If server has groups, server is our master source of truth across all devices (PC & Mobile)
       if (serverGroups.length > 0) {
-        const activeOnly = serverGroups.filter((g) => g.status === 'MONITORING');
+        const activeOnly = serverGroups.filter((g) => g.status === 'MONITORING' && g.name !== 'Strategy Pair #1');
         const hasStructuralChange = groupsChanged(state.strategyGroups, activeOnly);
         state.strategyGroups = activeOnly;
         try {
@@ -1510,6 +1512,7 @@
       // 2. If server has NO active groups, clear any old local completed groups so screen stays clean
       state.strategyGroups = [];
       try {
+        localStorage.removeItem('delta_strategy_groups');
         localStorage.setItem('delta_strategy_groups', JSON.stringify([]));
       } catch (_) {}
       renderStrategyGroups();
@@ -1521,7 +1524,7 @@
   }
 
   function renderStrategyGroups() {
-    const activeGroups = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING');
+    const activeGroups = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING' && g.name !== 'Strategy Pair #1');
     state.strategyGroups = activeGroups;
     dom.activeGroupsCount.textContent = `${activeGroups.length} ACTIVE`;
 
@@ -1819,6 +1822,10 @@
     if (dom.strangleBtcSizeNote) {
       dom.strangleBtcSizeNote.textContent = `Position Size: ${btcSize} BTC per leg (${lots} Lots)`;
     }
+    if (data.default_lots && dom.savedLotBadge) {
+      dom.savedLotBadge.style.display = 'inline-block';
+      dom.savedLotBadge.textContent = `💾 SAVED: ${data.default_lots} LOTS`;
+    }
 
     // Call Leg Card
     if (call && dom.strangleCallSymbol) {
@@ -1966,6 +1973,41 @@
         dom.marginCushionStatusBadge.className = 'badge-cushion badge-cushion-danger font-mono';
       }
     }
+  }
+
+  // --- Permanent Lot Size Saver ---
+  async function saveDefaultLots() {
+    initAudio();
+    const lots = parseInt(dom.strangleLotsInput ? dom.strangleLotsInput.value : '100', 10) || 100;
+    try {
+      localStorage.setItem('delta_strangle_default_lots', String(lots));
+    } catch (_) {}
+
+    try {
+      await apiFetch('/api/strategy/monthly-strangle/save-default-lots', {
+        method: 'POST',
+        body: JSON.stringify({ lots }),
+      });
+    } catch (e) {
+      console.warn('Server save default lots error:', e);
+    }
+
+    if (dom.savedLotBadge) {
+      dom.savedLotBadge.style.display = 'inline-block';
+      dom.savedLotBadge.textContent = `💾 SAVED: ${lots} LOTS`;
+    }
+
+    if (dom.saveLotsBtn) {
+      dom.saveLotsBtn.classList.add('saved');
+      dom.saveLotsBtn.innerHTML = '✅ SAVED!';
+      setTimeout(() => {
+        dom.saveLotsBtn.classList.remove('saved');
+        dom.saveLotsBtn.innerHTML = '💾 SAVE LOT';
+      }, 2000);
+    }
+
+    playSound('order');
+    showToast(`Default lot size saved: ${lots} Lots (${(lots * 0.001).toFixed(3)} BTC per leg)`, 'success', 3500);
   }
 
   function updateSellingSwitchUI(enabled) {
@@ -2573,6 +2615,10 @@
       });
     });
 
+    if (dom.saveLotsBtn) {
+      dom.saveLotsBtn.addEventListener('click', saveDefaultLots);
+    }
+
     if (dom.strangleSchedulerToggle) {
       dom.strangleSchedulerToggle.addEventListener('change', (e) => {
         toggleStrangleScheduler(e.target.checked);
@@ -2648,6 +2694,24 @@
     updateTicketState();
     refreshHistory();
     updateMarginCushionGuard();
+
+    // Restore saved default lots if present
+    try {
+      const savedLots = localStorage.getItem('delta_strangle_default_lots');
+      if (savedLots) {
+        const val = parseInt(savedLots, 10);
+        if (val > 0 && dom.strangleLotsInput) {
+          dom.strangleLotsInput.value = val;
+          document.querySelectorAll('.btn-quick-lot').forEach((btn) => {
+            btn.classList.toggle('active', parseInt(btn.dataset.lot, 10) === val);
+          });
+          if (dom.savedLotBadge) {
+            dom.savedLotBadge.style.display = 'inline-block';
+            dom.savedLotBadge.textContent = `💾 SAVED: ${val} LOTS`;
+          }
+        }
+      }
+    } catch (_) {}
 
     // Auto-restore saved connection if present (survives browser refresh!)
     await restoreSavedConnection();

@@ -2427,3 +2427,51 @@ body {
   font-weight: 700;
 }
 
+/* Save Lot Size Controls */
+.lots-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.saved-lot-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+}
+
+.btn-save-lots {
+  background: #1e1b4b;
+  color: #c4b5fd;
+  border: 1px solid #6366f1;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-save-lots:hover {
+  background: #312e81;
+  color: #ffffff;
+  border-color: #818cf8;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.25);
+}
+
+.btn-save-lots.saved {
+  background: #064e3b;
+  color: #6ee7b7;
+  border-color: #10b981;
+}
+
