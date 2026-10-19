@@ -1956,9 +1956,9 @@
       dom.strangleSchedulerBadge.classList.toggle('badge-scheduler-on', isSched);
     }
 
-    // Golden Rule Check: Is there an active Strangle group or monitored strategy?
-    const activeFromState = (state.strategyGroups || []).find((g) => g.status === 'MONITORING' && g.id !== 'grp_1791791406521');
-    const activeStrangleObj = data.active_trade || activeFromState;
+    // Golden Rule Check: ONLY for dedicated BTC Monthly Strangle strategy (independent from manual groups)
+    const activeMonthlyStrangle = (state.strategyGroups || []).find((g) => g.strategy_type === 'MONTHLY_STRANGLE' && g.status === 'MONITORING');
+    const activeStrangleObj = (data.active_trade && data.active_trade.strategy_type === 'MONTHLY_STRANGLE') ? data.active_trade : activeMonthlyStrangle;
     const hasActiveStrangle = !!activeStrangleObj;
     state.lastStrangleData = data;
 
@@ -2130,8 +2130,8 @@
 
     // Refresh execution tracker if strangle preview data is cached
     if (state.lastStrangleData) {
-      const activeFromState = (state.strategyGroups || []).find((g) => g.status === 'MONITORING' && g.id !== 'grp_1791791406521');
-      const activeObj = state.lastStrangleData.active_trade || activeFromState;
+      const activeMonthlyStrangle = (state.strategyGroups || []).find((g) => g.strategy_type === 'MONTHLY_STRANGLE' && g.status === 'MONITORING');
+      const activeObj = (state.lastStrangleData.active_trade && state.lastStrangleData.active_trade.strategy_type === 'MONTHLY_STRANGLE') ? state.lastStrangleData.active_trade : activeMonthlyStrangle;
       const isSched = !!(state.lastStrangleData.scheduler && state.lastStrangleData.scheduler.enabled);
       updateStrangleExecutionTracker(enabled, isSched, !!activeObj, activeObj, state.lastStrangleData.next_entry);
     }

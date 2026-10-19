@@ -1844,8 +1844,8 @@ def run_strategy_monitor_daemon():
                     sched = load_strangle_scheduler()
                     if sched.get("enabled") and sched.get("selling_enabled", True):
                         all_groups = load_server_strategy_groups()
-                        # Golden Rule: Check if any trade is currently active (MONITORING)
-                        has_active = any(g.get("status") == "MONITORING" for g in all_groups)
+                        # Golden Rule: Check if a Monthly Strangle trade is currently active (MONITORING)
+                        has_active = any(g.get("status") == "MONITORING" and g.get("strategy_type") == "MONTHLY_STRANGLE" for g in all_groups)
                         if not has_active:
                             now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
                             # Saturday is weekday 5
@@ -1926,9 +1926,8 @@ def api_strangle_preview():
 
         with GROUPS_LOCK:
             groups = load_server_strategy_groups()
-        active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and (g.get("strategy_type") == "MONTHLY_STRANGLE" or len(g.get("positions", [])) >= 2)), None)
-        if not active_strangle:
-            active_strangle = next((g for g in groups if g.get("status") == "MONITORING"), None)
+        # Strictly check for dedicated Monthly Strangle trades (independent from manual groups)
+        active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and g.get("strategy_type") == "MONTHLY_STRANGLE"), None)
 
         next_entry = get_next_saturday_ist()
 
@@ -1976,14 +1975,12 @@ def api_strangle_execute():
     if lots <= 0:
         return jsonify(error="Lots must be greater than zero."), 400
 
-    # Golden Rule: No overlapping active strangle trades
+    # Golden Rule: No overlapping active Monthly Strangle trades
     with GROUPS_LOCK:
         groups = load_server_strategy_groups()
-    active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and (g.get("strategy_type") == "MONTHLY_STRANGLE" or len(g.get("positions", [])) >= 2)), None)
-    if not active_strangle:
-        active_strangle = next((g for g in groups if g.get("status") == "MONITORING"), None)
+    active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and g.get("strategy_type") == "MONTHLY_STRANGLE"), None)
     if active_strangle:
-        return jsonify(error=f"Golden Rule Active: Strategy '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
+        return jsonify(error=f"Golden Rule Active: Monthly Strangle '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
 
     try:
         custom_tp = safe_float(data.get("custom_tp")) if data.get("custom_tp") is not None else None
