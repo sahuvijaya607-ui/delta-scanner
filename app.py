@@ -1975,55 +1975,69 @@ def run_strategy_monitor_daemon():
                 # Trigger Target Profit Auto-Close
                 if combined_mtm >= target:
                     logger.info("🎯 TARGET HIT for group '%s'! MTM=+$%.2f >= Target=+$%.2f. Auto-closing all legs!", grp.get("name"), combined_mtm, target)
-                    grp["status"] = "TARGET_HIT"
-                    grp["exit_reason"] = f"Target Profit Hit (+${combined_mtm:.2f})"
-                    dirty = True
                     dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
+                    all_closed = True
                     for leg in grp_legs:
                         try:
-                            close_single_position(dummy_state, leg)
+                            c_res = close_single_position(dummy_state, leg)
+                            if not c_res or not (c_res.get("ok") or c_res.get("success")):
+                                all_closed = False
                         except Exception as c_err:
                             logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
+                            all_closed = False
 
-                    # Archive to persistent history
-                    leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
-                    total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
-                    add_history_entry(dummy_state, {
-                        "symbol": f"{grp.get('name')} ({leg_syms})",
-                        "side": "PROFIT EXIT",
-                        "quantity": f"{total_qty} Lots",
-                        "price": f"+${combined_mtm:.2f}",
-                        "realized_profit": round(float(combined_mtm), 2),
-                        "order_type": "strategy_target_exit",
-                        "status": f"🎯 Target Profit Booked (+${combined_mtm:.2f} USD)",
-                        "time": datetime.now().strftime("%d-%m %H:%M:%S"),
-                    })
+                    if all_closed:
+                        grp["status"] = "TARGET_HIT"
+                        grp["exit_reason"] = f"Target Profit Hit (+${combined_mtm:.2f})"
+                        dirty = True
+                        # Archive to persistent history
+                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        add_history_entry(dummy_state, {
+                            "symbol": f"{grp.get('name')} ({leg_syms})",
+                            "side": "PROFIT EXIT",
+                            "quantity": f"{total_qty} Lots",
+                            "price": f"+${combined_mtm:.2f}",
+                            "realized_profit": round(float(combined_mtm), 2),
+                            "order_type": "strategy_target_exit",
+                            "status": f"🎯 Target Profit Booked (+${combined_mtm:.2f} USD)",
+                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                        })
+                    else:
+                        logger.warning("Target reached for %s but one or more legs failed to close. Keeping in MONITORING to retry immediately.", grp.get("name"))
 
                 # Trigger Stop-Loss Auto-Close
                 elif combined_mtm <= -abs(stop_loss):
                     logger.info("🛑 STOP-LOSS HIT for group '%s'! MTM=-$%.2f <= SL=-$%.2f. Auto-closing all legs!", grp.get("name"), abs(combined_mtm), stop_loss)
-                    grp["status"] = "SL_HIT"
-                    grp["exit_reason"] = f"Stop Loss Hit (-${abs(combined_mtm):.2f})"
-                    dirty = True
                     dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
+                    all_closed = True
                     for leg in grp_legs:
                         try:
-                            close_single_position(dummy_state, leg)
+                            c_res = close_single_position(dummy_state, leg)
+                            if not c_res or not (c_res.get("ok") or c_res.get("success")):
+                                all_closed = False
                         except Exception as c_err:
                             logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
+                            all_closed = False
 
-                    # Archive to persistent history
-                    leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
-                    total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
-                    add_history_entry(dummy_state, {
-                        "symbol": f"{grp.get('name')} ({leg_syms})",
-                        "side": "SL EXIT",
-                        "quantity": f"{total_qty} Lots",
-                        "price": f"-${abs(combined_mtm):.2f}",
-                        "order_type": "strategy_sl_exit",
-                        "status": f"🛑 Stop-Loss Closed (-${abs(combined_mtm):.2f} USD)",
-                        "time": datetime.now().strftime("%d-%m %H:%M:%S"),
-                    })
+                    if all_closed:
+                        grp["status"] = "SL_HIT"
+                        grp["exit_reason"] = f"Stop Loss Hit (-${abs(combined_mtm):.2f})"
+                        dirty = True
+                        # Archive to persistent history
+                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        add_history_entry(dummy_state, {
+                            "symbol": f"{grp.get('name')} ({leg_syms})",
+                            "side": "SL EXIT",
+                            "quantity": f"{total_qty} Lots",
+                            "price": f"-${abs(combined_mtm):.2f}",
+                            "order_type": "strategy_sl_exit",
+                            "status": f"🛑 Stop-Loss Closed (-${abs(combined_mtm):.2f} USD)",
+                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                        })
+                    else:
+                        logger.warning("Stop-Loss hit for %s but one or more legs failed to close. Keeping in MONITORING to retry immediately.", grp.get("name"))
 
             # Re-acquire GROUPS_LOCK briefly to persist state
             with GROUPS_LOCK:
