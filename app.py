@@ -983,13 +983,21 @@ def api_positions():
             # Option exit price:
             # Long position exits at Best Bid (or Mark Price if bid empty)
             # Short position exits at Best Ask (or Mark Price if ask empty)
-            # Exact Delta Exchange Terminal Matching UPNL using official Mark Price
             if is_long:
                 exit_price = best_bid if best_bid > 0 else mark_price
-                upnl = (mark_price - entry_price) * asset_qty
             else:
                 exit_price = best_ask if best_ask > 0 else mark_price
-                upnl = (entry_price - mark_price) * asset_qty
+
+            # Exact Delta Exchange Terminal Matching UPNL using official cashflow
+            rc = safe_float(p.get("realized_cashflow"))
+            uc = safe_float(p.get("unrealized_cashflow"))
+            if p.get("realized_cashflow") is not None and p.get("unrealized_cashflow") is not None:
+                upnl = rc + uc
+            else:
+                if is_long:
+                    upnl = (mark_price - entry_price) * asset_qty
+                else:
+                    upnl = (entry_price - mark_price) * asset_qty
 
             entry_value = entry_price * asset_qty
             current_value = (mark_price if mark_price > 0 else exit_price) * asset_qty
@@ -1912,13 +1920,21 @@ def run_strategy_monitor_daemon():
                 except Exception:
                     pass
 
-                # Exact Delta Exchange Terminal Matching UPNL using official Mark Price
                 if is_long:
                     exit_price = best_bid if best_bid > 0 else mark_price
-                    upnl = (mark_price - entry_price) * asset_qty
                 else:
                     exit_price = best_ask if best_ask > 0 else mark_price
-                    upnl = (entry_price - mark_price) * asset_qty
+
+                # Exact Delta Exchange Terminal Matching UPNL using official cashflow
+                rc = safe_float(p.get("realized_cashflow"))
+                uc = safe_float(p.get("unrealized_cashflow"))
+                if p.get("realized_cashflow") is not None and p.get("unrealized_cashflow") is not None:
+                    upnl = rc + uc
+                else:
+                    if is_long:
+                        upnl = (mark_price - entry_price) * asset_qty
+                    else:
+                        upnl = (entry_price - mark_price) * asset_qty
 
                 item = {
                     "product_id": prod_id,
