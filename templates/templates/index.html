@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delta Exchange · Professional Option Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
+</head>
+<body>
+  <!-- Header / Navigation Bar -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 22 22 22 12 2"></polygon>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">DELTA <span>TERMINAL</span></div>
+        <div class="brand-sub">INSTITUTIONAL OPTION SCANNER</div>
+      </div>
+    </div>
+
+    <!-- Underlying Asset Switcher -->
+    <div class="asset-selector" role="tablist">
+      <button class="asset-tab active" data-asset="BTC" id="tabBTC">
+        <span class="crypto-icon">₿</span>
+        <span class="asset-name">BTC</span>
+      </button>
+      <button class="asset-tab" data-asset="ETH" id="tabETH">
+        <span class="crypto-icon">Ξ</span>
+        <span class="asset-name">ETH</span>
+      </button>
+      <button class="asset-tab" data-asset="XAUT" id="tabXAUT">
+        <span class="crypto-icon">🟡</span>
+        <span class="asset-name">XAUT</span>
+      </button>
+    </div>
+
+    <!-- Top Right Status Indicators -->
+    <div class="header-right">
+      <button class="audio-toggle" id="audioToggle" title="Toggle audio chime">
+        <span id="audioIcon">🔊</span>
+        <span id="audioText">SOUND ON</span>
+      </button>
+
+      <div class="status-pill wallet-pill" id="walletPill" style="display: none;">
+        <span class="status-beacon green"></span>
+        <span id="walletLabel">WALLET: $0.00</span>
+      </div>
+
+      <div class="status-pill" id="connPill">
+        <span class="status-beacon amber" id="connBeacon"></span>
+        <span id="connLabel">PUBLIC DATA MODE</span>
+      </div>
+
+      <div class="clock-display">
+        <span class="clock-icon">🕒</span>
+        <span id="clockText">--:--:-- IST</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Risk Disclosure Banner -->
+  <section class="risk-banner">
+    <div class="risk-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+      RISK WARNING
+    </div>
+    <div class="risk-text">
+      Options are complex derivative contracts involving substantial financial risk of loss. Public scanner data is indicative only. Order submissions create real exchange financial liabilities. Always verify side, contracts, entry price, target, and stop-loss brackets before submitting live trades.
+    </div>
+  </section>
+
+  <!-- Main Dashboard Container -->
+  <main class="dashboard-container">
+
+    <!-- Control & Connection Toolbar -->
+    <section class="control-bar">
+      <!-- Credentials Panel -->
+      <div class="auth-strip">
+        <div class="input-group">
+          <label for="envSelect">ENVIRONMENT</label>
+          <select id="envSelect">
+            <option value="india">India · Production</option>
+            <option value="india_testnet">India · Testnet</option>
+            <option value="global">Global · Production</option>
+            <option value="global_testnet">Global · Testnet</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="apiKey">API KEY</label>
+          <input type="text" id="apiKey" placeholder="Optional for public scan" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="input-group">
+          <label for="apiSecret">API SECRET</label>
+          <input type="password" id="apiSecret" placeholder="Held in RAM only" autocomplete="off">
+        </div>
+        <div class="auth-buttons">
+          <button class="btn btn-secondary" id="saveConnBtn">
+            <span class="btn-icon">💾</span> Save Credentials
+          </button>
+          <button class="btn btn-dark" id="clearConnBtn" title="Clear in-memory credentials">
+            <span class="btn-icon">✕</span> Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- Scanner Actions -->
+      <div class="scanner-strip">
+        <div class="input-group expiry-group">
+          <label for="expirySelect">EXPIRY DATE</label>
+          <select id="expirySelect">
+            <option value="">Loading expiries…</option>
+          </select>
+        </div>
+
+        <div class="scanner-actions">
+          <button class="btn btn-start" id="startScanBtn">
+            <span class="btn-icon">▶</span> START SCANNER
+          </button>
+          <button class="btn btn-stop" id="stopScanBtn" disabled>
+            <span class="btn-icon">■</span> STOP SCANNER
+          </button>
+        </div>
+
+        <div class="feed-indicator">
+          <span class="status-beacon muted" id="feedBeacon"></span>
+          <div class="feed-labels">
+            <span class="feed-title" id="feedTitle">SCANNER IDLE</span>
+            <span class="feed-desc" id="feedDesc">Press Start to scan live data</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Market Metrics Bar -->
+    <section class="metrics-grid" aria-label="Option market summary">
+      <div class="metric-card spot-card">
+        <div class="metric-header">
+          <span class="metric-title">UNDERLYING SPOT</span>
+          <span class="metric-tag" id="spotTag">INDEX</span>
+        </div>
+        <div class="metric-value font-mono" id="valSpot">—</div>
+        <div class="metric-footer" id="valSpotDesc">Awaiting feed</div>
+      </div>
+
+      <div class="metric-card atm-card">
+        <div class="metric-header">
+          <span class="metric-title">ATM STRIKE</span>
+          <span class="metric-tag">AT-THE-MONEY</span>
+        </div>
+        <div class="metric-value font-mono" id="valAtm">—</div>
+        <div class="metric-footer" id="valAtmDistance">Closest listed contract</div>
+      </div>
+
+      <div class="metric-card maxpain-card">
+        <div class="metric-header">
+          <span class="metric-title">MAX PAIN STRIKE</span>
+          <span class="metric-tag maxpain-tag">EXPIRY PAIN</span>
+        </div>
+        <div class="metric-value font-mono maxpain-accent" id="valMaxPain">—</div>
+        <div class="metric-footer" id="valMaxPainDiff">Lowest writer payout</div>
+      </div>
+
+      <div class="metric-card pcr-card">
+        <div class="metric-header">
+          <span class="metric-title">PCR (OI RATIO)</span>
+          <span class="metric-sentiment" id="pcrSentiment">—</span>
+        </div>
+        <div class="metric-value font-mono" id="valPcr">—</div>
+        <div class="metric-footer">Put OI ÷ Call OI</div>
+      </div>
+
+      <div class="metric-card call-oi-card">
+        <div class="metric-header">
+          <span class="metric-title">CALL OPEN INTEREST</span>
+          <span class="metric-tag call-tag">TOTAL CE</span>
+        </div>
+        <div class="metric-value font-mono call-accent" id="valCallOi">—</div>
+        <div class="metric-footer" id="valCallVol">Vol: —</div>
+      </div>
+
+      <div class="metric-card put-oi-card">
+        <div class="metric-header">
+          <span class="metric-title">PUT OPEN INTEREST</span>
+          <span class="metric-tag put-tag">TOTAL PE</span>
+        </div>
+        <div class="metric-value font-mono put-accent" id="valPutOi">—</div>
+        <div class="metric-footer" id="valPutVol">Vol: —</div>
+      </div>
+
+      <div class="metric-card refresh-card">
+        <div class="metric-header">
+          <span class="metric-title">SCAN REFRESH</span>
+          <span class="metric-badge" id="rateBadge">1 SEC</span>
+        </div>
+        <div class="metric-value font-mono" id="valLastUpdate">—</div>
+        <div class="metric-footer" id="valUpdateCount">0 cycles recorded</div>
+      </div>
+    </section>
+
+    <!-- Option Chain Table Section -->
+    <section class="chain-section">
+      <div class="chain-header">
+        <div class="chain-title-box">
+          <h2 class="chain-title" id="chainTitle">BTC OPTION CHAIN</h2>
+          <div class="chain-meta" id="chainMeta">Select an expiry and press Start Scanner</div>
+        </div>
+
+        <!-- Chain Header Controls: Strike Filter, Greeks View Toggle, CSV Export -->
+        <div class="chain-controls-bar">
+          <div class="filter-item">
+            <label for="strikeFilter">FILTER:</label>
+            <select id="strikeFilter" class="compact-select">
+              <option value="all">All Strikes</option>
+              <option value="5">±5 Strikes (ATM)</option>
+              <option value="10" selected>±10 Strikes (ATM)</option>
+              <option value="15">±15 Strikes (ATM)</option>
+            </select>
+          </div>
+
+          <button class="btn btn-dark btn-toggle-greeks" id="greeksToggleBtn" title="Toggle Greeks View (Delta, Theta, Gamma, Vega)">
+            <span class="btn-icon">🔬</span> <span id="greeksBtnText">SHOW GREEKS</span>
+          </button>
+
+          <button class="btn btn-dark btn-export-csv" id="exportCsvBtn" title="Export Option Chain to CSV">
+            <span class="btn-icon">📥</span> EXPORT CSV
+          </button>
+        </div>
+
+        <div class="chain-legend">
+          <span class="legend-item"><span class="legend-swatch ce-swatch"></span> CALLS (CE)</span>
+          <span class="legend-item"><span class="legend-swatch atm-swatch"></span> ATM STRIKE</span>
+          <span class="legend-item"><span class="legend-swatch maxpain-swatch"></span> MAX PAIN</span>
+          <span class="legend-item"><span class="legend-swatch pe-swatch"></span> PUTS (PE)</span>
+        </div>
+      </div>
+
+      <!-- Responsive Table Container -->
+      <div class="table-container" id="chainTableContainer">
+        <table class="chain-table" id="chainTable">
+          <thead>
+            <tr class="table-super-header">
+              <th colspan="6" class="th-calls" id="thCallsHeader">CALL OPTIONS (CE)</th>
+              <th class="th-strike">STRIKE</th>
+              <th colspan="6" class="th-puts" id="thPutsHeader">PUT OPTIONS (PE)</th>
+            </tr>
+            <tr class="table-column-headers" id="tableColumnHeaders">
+              <!-- CALLS COLUMNS -->
+              <th class="col-oi" title="Open Interest">OI</th>
+              <th class="col-vol" title="Trading Volume">VOL</th>
+              <th class="col-iv" title="Implied Volatility">IV %</th>
+              <th class="col-bid" title="Best Bid Price">BID</th>
+              <th class="col-ask" title="Best Ask Price">ASK</th>
+              <th class="col-last-act" title="Last Traded Price & Action Buttons">LAST / ACTION</th>
+
+              <!-- STRIKE COLUMN -->
+              <th class="col-strike" title="Option Strike Price">STRIKE</th>
+
+              <!-- PUTS COLUMNS -->
+              <th class="col-last-act" title="Last Traded Price & Action Buttons">LAST / ACTION</th>
+              <th class="col-bid" title="Best Bid Price">BID</th>
+              <th class="col-ask" title="Best Ask Price">ASK</th>
+              <th class="col-iv" title="Implied Volatility">IV %</th>
+              <th class="col-vol" title="Trading Volume">VOL</th>
+              <th class="col-oi" title="Open Interest">OI</th>
+          </thead>
+          <tbody id="chainBody">
+            <tr class="empty-row">
+              <td colspan="13" class="empty-cell">
+                <div class="empty-state">
+                  <div class="empty-icon">⚡</div>
+                  <div class="empty-title">Scanner is currently paused</div>
+                  <div class="empty-sub">Click <strong>Start Scanner</strong> above to stream live Delta Exchange options data.</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Lower Execution & Position Management Grid -->
+    <section class="execution-grid">
+
+      <!-- Panel 1: Live Order Ticket -->
+      <article class="panel order-ticket-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-icon">📝</span>
+            <h3 class="panel-title">LIVE ORDER TICKET</h3>
+          </div>
+          <span class="lock-pill" id="ticketLockPill">LOCKED</span>
+        </div>
+
+        <div class="ticket-body">
+          <!-- Selected Contract Display -->
+          <div class="selected-contract-banner" id="contractBanner">
+            <div class="contract-main">
+              <span class="contract-symbol font-mono" id="ticketSymbol">NO CONTRACT SELECTED</span>
+              <span class="contract-tag" id="ticketTag">—</span>
+            </div>
+            <div class="contract-quotes font-mono" id="ticketQuotes">
+              Click BUY or SELL from any chain row
+            </div>
+          </div>
+
+          <!-- Order Form -->
+          <div class="form-grid">
+            <div class="input-group">
+              <label for="orderSide">SIDE</label>
+              <select id="orderSide">
+                <option value="buy">BUY (Long)</option>
+                <option value="sell">SELL (Short)</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="orderType">ORDER TYPE</label>
+              <select id="orderType">
+                <option value="limit_order">LIMIT ORDER</option>
+                <option value="market_order">MARKET ORDER</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="orderQty">QUANTITY (CONTRACTS)</label>
+              <input type="number" id="orderQty" min="1" step="1" value="1">
+            </div>
+
+            <div class="input-group" id="priceInputGroup">
+              <label for="orderPrice">LIMIT PRICE ($)</label>
+              <input type="number" id="orderPrice" min="0" step="any" placeholder="Entry limit price">
+            </div>
+          </div>
+
+          <!-- Bracket Protection Dropdown Accordion -->
+          <details class="bracket-details" id="bracketDetails">
+            <summary class="bracket-summary">
+              <span>🎯 OPTIONAL BRACKET (TARGET &amp; STOP-LOSS)</span>
+              <span class="bracket-chevron">▼</span>
+            </summary>
+            <div class="bracket-inputs">
+              <div class="input-group">
+                <label for="targetPrice">TAKE PROFIT TARGET ($)</label>
+                <input type="number" id="targetPrice" min="0" step="any" placeholder="Target price">
+              </div>
+              <div class="input-group">
+                <label for="stopLossPrice">STOP-LOSS TRIGGER ($)</label>
+                <input type="number" id="stopLossPrice" min="0" step="any" placeholder="Stop-loss price">
+              </div>
+            </div>
+            <div class="bracket-hint">
+              Target and SL create exchange-level brackets that cancel-other upon fill.
+            </div>
+          </details>
+
+          <!-- Risk & Live Confirmation Checkbox -->
+          <div class="ticket-confirm">
+            <label class="checkbox-label">
+              <input type="checkbox" id="liveCheckbox">
+              <span class="checkbox-text">
+                I understand this sends a <strong>LIVE REAL-MONEY ORDER</strong> directly to Delta Exchange.
+              </span>
+            </label>
+          </div>
+
+          <!-- Submit Button -->
+          <button class="btn btn-submit-order" id="submitOrderBtn" disabled>
+            SUBMIT LIVE ORDER
+          </button>
+
+          <div class="ticket-footer-note">
+            Executed via <code>Tradehull-Delta-Exchange</code> on India production, or signed HMAC-SHA256 REST API.
+          </div>
+        </div>
+      </article>
+
+      <!-- Panel 2: Open Positions & Strategy Baskets -->
+      <article class="panel positions-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-icon">📊</span>
+            <h3 class="panel-title">OPEN POSITIONS</h3>
+            <span class="badge" id="portfolioUpnlBadge" style="margin-left: 10px; font-family: monospace; display: none;">TOTAL UPNL: $0.00</span>
+          </div>
+          <div class="panel-actions">
+            <button class="btn btn-refresh-sm" id="refreshPositionsBtn" title="Refresh Positions">
+              ↻
+            </button>
+            <button class="btn btn-panic" id="exitAllBtn" disabled>
+              🚨 EXIT ALL
+            </button>
+          </div>
+        </div>
+
+        <div class="positions-body">
+          <div class="panic-disclaimer">
+            <strong>MULTI-LEG COMBINING:</strong> Select 2 or more positions using checkboxes to set a <strong>Combined Target (TP) &amp; Combined Stop-Loss (SL)</strong>.
+          </div>
+
+          <!-- Multi-selection Action Pill Bar (hidden until checkboxes checked) -->
+          <div class="batch-action-bar" id="batchActionBar" style="display: none;">
+            <div class="batch-info">
+              <span class="batch-count" id="batchCount">0 SELECTED</span>
+              <span class="batch-pnl font-mono" id="batchPnl">MTM: $0.00</span>
+            </div>
+            <button class="btn btn-group-create" id="openGroupModalBtn">
+              ➕ COMBINE INTO GROUP (SET COMBINED SL / TP)
+            </button>
+          </div>
+
+          <div class="table-container mini-table-container">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th style="width: 24px;"><input type="checkbox" id="selectAllPositions" title="Select All"></th>
+                  <th>SYMBOL</th>
+                  <th>SIDE</th>
+                  <th>SIZE</th>
+                  <th>ENTRY</th>
+                  <th>MARK</th>
+                  <th>VALUE</th>
+                  <th>UPNL ($)</th>
+                  <th style="text-align: right;">ACTION</th>
+                </tr>
+              </thead>
+              <tbody id="positionsBody">
+                <tr class="empty-mini-row">
+                  <td colspan="9">Connect credentials to view open account positions.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+
+      <!-- Panel: BTC Monthly Safe OTM Strangle Strategy -->
+      <article class="panel strangle-strategy-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-icon">🤖</span>
+            <h3 class="panel-title">BTC MONTHLY SAFE OTM STRANGLE</h3>
+          </div>
+          <div class="strangle-header-badges">
+            <span class="badge-track-record">🏆 90.5% WIN RATE · 3-YR REAL DATA</span>
+            <button type="button" class="btn-selling-toggle selling-off" id="sellingMasterToggleBtn" title="Click to turn Option Selling ON or OFF">
+              <span class="selling-dot" id="sellingToggleDot">🔴</span>
+              <span class="selling-text font-mono" id="sellingToggleText">SELLING: OFF (PAUSED)</span>
+            </button>
+            <span class="badge-scheduler font-mono" id="strangleSchedulerBadge">⏰ SCHEDULER: OFF</span>
+          </div>
+        </div>
+
+        <div class="strangle-body">
+          <!-- Master Selling Engine Status Banner -->
+          <div class="selling-status-banner banner-selling-off" id="sellingStatusBanner">
+            <span class="banner-icon" id="sellingBannerIcon">⏸️</span>
+            <div class="banner-content">
+              <span class="banner-title" id="sellingBannerTitle">OPTION SELLING IS PAUSED (OFF):</span>
+              <span class="banner-desc" id="sellingBannerDesc">Option selling is turned OFF. No new sell trades will be opened. Live option scanner, positions tracking &amp; TP/SL risk monitors remain 100% active.</span>
+            </div>
+          </div>
+
+          <!-- Live Execution & Next Entry Schedule Tracker -->
+          <div class="strangle-execution-tracker tracker-state-paused" id="strangleExecutionTracker">
+            <div class="tracker-main-row">
+              <div class="tracker-left">
+                <span class="tracker-badge badge-paused" id="trackerBadge">⏸️ SELLING PAUSED</span>
+                <span class="tracker-headline font-mono" id="trackerHeadline">OPTION SELLING IS OFF</span>
+              </div>
+              <div class="tracker-right">
+                <span class="tracker-timer-pill font-mono" id="trackerCountdown">Scheduler Paused</span>
+              </div>
+            </div>
+            <div class="tracker-detail-row" id="trackerDetailRow">
+              <span class="tracker-detail-icon" id="trackerDetailIcon">ℹ️</span>
+              <span class="tracker-detail-text" id="trackerDetailText">Option selling is turned OFF. Turn ON the "SELLING: OFF" switch above to authorize automated Saturday entries.</span>
+            </div>
+          </div>
+
+          <div class="strangle-description-bar">
+            <strong>OFFICIAL RULEBOOK:</strong> High-probability monthly theta decay selling OTM Call (~+15-20%) and Put (~-15-20%) closest to ~$500 premium on Next-Month Last Friday expiry with <strong>20% Take Profit</strong> and <strong>Dynamic Stop-Loss</strong>.
+          </div>
+
+          <!-- Configuration & Sizing Controls -->
+          <div class="strangle-config-grid">
+            <div class="input-group">
+              <div class="lots-label-row">
+                <label for="strangleLotsInput">LOT SIZING (1 LOT = 0.001 BTC)</label>
+                <span class="saved-lot-badge font-mono" id="savedLotBadge" style="display:none;">💾 SAVED: 100 LOTS</span>
+              </div>
+              <div class="strangle-lots-wrapper">
+                <input type="number" id="strangleLotsInput" min="1" step="1" value="100" class="font-mono">
+                <div class="strangle-quick-lots">
+                  <button type="button" class="btn-quick-lot" data-lot="50">50</button>
+                  <button type="button" class="btn-quick-lot active" data-lot="100">100</button>
+                  <button type="button" class="btn-quick-lot" data-lot="250">250</button>
+                  <button type="button" class="btn-quick-lot" data-lot="500">500</button>
+                  <button type="button" class="btn-quick-lot" data-lot="1000">1,000</button>
+                </div>
+                <button type="button" class="btn-save-lots" id="saveLotsBtn" title="Save this lot size as your permanent default">
+                  💾 SAVE LOT
+                </button>
+              </div>
+              <span class="input-subnote" id="strangleBtcSizeNote">Position Size: 0.100 BTC per leg</span>
+            </div>
+
+            <!-- Auto-Scheduler Control -->
+            <div class="strangle-scheduler-box">
+              <div class="scheduler-label-group">
+                <label>24/7 SATURDAY 00:00 IST AUTO-SCHEDULER</label>
+                <span class="scheduler-subnote">Auto-executes on 1st &amp; subsequent Saturdays (Zero Overlap Golden Rule)</span>
+              </div>
+              <div class="scheduler-toggle-wrap">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="strangleSchedulerToggle">
+                  <span class="slider round"></span>
+                </label>
+                <span class="scheduler-status-text font-mono" id="strangleSchedulerStatusText">DISABLED</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Capital & Live Margin Safety Guard (Rulebook Sec. 8) -->
+          <div class="strangle-margin-guard-box" id="strangleMarginGuardBox">
+            <div class="margin-guard-header">
+              <div class="guard-title-wrap">
+                <span class="guard-icon">🛡️</span>
+                <span class="guard-title">LIVE MARGIN &amp; CAPITAL SAFETY GUARD</span>
+                <span class="guard-rule-ref">(Rulebook Sec. 8 · 3.0x Buffer)</span>
+              </div>
+              <span class="badge-cushion badge-cushion-neutral font-mono" id="marginCushionStatusBadge">ℹ️ AWAITING WALLET</span>
+            </div>
+            <div class="margin-guard-metrics">
+              <div class="margin-guard-item">
+                <span class="guard-label">EST. MARGIN REQUIRED:</span>
+                <span class="guard-val font-mono" id="marginRequiredVal">~$500.00 USD</span>
+              </div>
+              <div class="margin-guard-item">
+                <span class="guard-label">REC. SAFE CAPITAL (3.0x):</span>
+                <span class="guard-val font-mono" id="marginRecommendedVal">~$1,500.00 USD</span>
+              </div>
+              <div class="margin-guard-item">
+                <span class="guard-label">WALLET AVAILABLE:</span>
+                <span class="guard-val font-mono" id="marginWalletAvailVal">$0.00 USD</span>
+              </div>
+              <div class="margin-guard-item">
+                <span class="guard-label">CUSHION RATIO:</span>
+                <span class="guard-val font-mono" id="marginCushionRatioVal">0.0x</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Rulebook Strike Selection Preview -->
+          <div class="strangle-strikes-container">
+            <div class="strangle-leg-card strangle-leg-call">
+              <div class="leg-card-header">
+                <span class="leg-tag-call">SELL CALL (+OTM)</span>
+                <span class="leg-dist font-mono" id="strangleCallDist">+15.8% OTM</span>
+              </div>
+              <div class="leg-symbol font-mono" id="strangleCallSymbol">C-BTC-96000-271126</div>
+              <div class="leg-metrics-row">
+                <div class="leg-metric">
+                  <span class="metric-lbl">STRIKE:</span>
+                  <span class="metric-val font-mono" id="strangleCallStrike">$96,000</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">MARK PREM:</span>
+                  <span class="metric-val font-mono" id="strangleCallMark">$534.50</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">BID / ASK:</span>
+                  <span class="metric-val font-mono" id="strangleCallQuotes">$515 / $555</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="strangle-leg-card strangle-leg-put">
+              <div class="leg-card-header">
+                <span class="leg-tag-put">SELL PUT (-OTM)</span>
+                <span class="leg-dist font-mono" id="stranglePutDist">-16.8% OTM</span>
+              </div>
+              <div class="leg-symbol font-mono" id="stranglePutSymbol">P-BTC-69000-271126</div>
+              <div class="leg-metrics-row">
+                <div class="leg-metric">
+                  <span class="metric-lbl">STRIKE:</span>
+                  <span class="metric-val font-mono" id="stranglePutStrike">$69,000</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">MARK PREM:</span>
+                  <span class="metric-val font-mono" id="stranglePutMark">$507.80</span>
+                </div>
+                <div class="leg-metric">
+                  <span class="metric-lbl">BID / ASK:</span>
+                  <span class="metric-val font-mono" id="stranglePutQuotes">$490 / $525</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto-Calculated Math Strip with Editable Combined TP & SL -->
+          <div class="strangle-math-strip">
+            <div class="math-box">
+              <span class="math-lbl">EXPIRY (NEXT-MONTH)</span>
+              <span class="math-val font-mono" id="strangleExpiryVal">27-NOV-2026 (38 DTE)</span>
+            </div>
+            <div class="math-box">
+              <span class="math-lbl">COMBINED ENTRY CREDIT</span>
+              <span class="math-val font-mono pnl-positive" id="strangleTotalCreditVal">$104.23 USD</span>
+            </div>
+            <div class="math-box math-box-input">
+              <div class="math-box-header">
+                <span class="math-lbl">TARGET PROFIT (TP)</span>
+                <span class="math-pct-pill pnl-positive" id="strangleTpPctSub">+20%</span>
+              </div>
+              <div class="math-input-wrap">
+                <span class="math-input-prefix font-mono pnl-positive">+$</span>
+                <input type="number" id="strangleCustomTpInput" class="strangle-math-input font-mono pnl-positive" step="0.5" min="0.1" placeholder="20.85" title="Custom Combined Target Profit in USD">
+              </div>
+            </div>
+            <div class="math-box math-box-input">
+              <div class="math-box-header">
+                <span class="math-lbl">DYNAMIC STOP-LOSS</span>
+                <span class="math-pct-pill pnl-negative" id="strangleSlPctSub">Dynamic</span>
+              </div>
+              <div class="math-input-wrap">
+                <span class="math-input-prefix font-mono pnl-negative">-$</span>
+                <input type="number" id="strangleCustomSlInput" class="strangle-math-input font-mono pnl-negative" step="0.5" min="0.1" placeholder="41.70" title="Custom Combined Stop-Loss in USD">
+              </div>
+            </div>
+            <div class="math-box">
+              <div class="math-box-header">
+                <span class="math-lbl">HARD SL CAP ($1.50/LOT)</span>
+                <button type="button" class="btn-math-reset font-mono" id="strangleResetTpSlBtn" title="Reset TP &amp; SL to Rulebook defaults">↺ RESET</button>
+              </div>
+              <span class="math-val font-mono" id="strangleHardSlVal">Max -$150.00</span>
+            </div>
+          </div>
+
+          <!-- Active Trade / Golden Rule Status Alert (hidden unless active) -->
+          <div class="strangle-active-alert" id="strangleActiveAlert" style="display: none;">
+            <span class="alert-icon">🛡️</span>
+            <div class="alert-text">
+              <strong>GOLDEN RULE ACTIVE:</strong> A Strangle trade is currently running! New trade deployment is paused until the existing position hits Target or Stop-Loss.
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="strangle-actions-row">
+            <button class="btn btn-strangle-deploy" id="strangleDeployBtn">
+              <span class="btn-icon">⚡</span> 1-CLICK INSTANT DEPLOY STRANGLE
+            </button>
+            <button class="btn btn-secondary" id="strangleRefreshBtn">
+              <span class="btn-icon">🔄</span> REFRESH STRIKES
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Panel 3: Active Strategy Groups (Combined SL & TP) -->
+      <article class="panel strategy-groups-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-icon">🧩</span>
+            <h3 class="panel-title">STRATEGY GROUPS (COMBINED SL / TP)</h3>
+          </div>
+          <span class="badge-sub font-mono" id="activeGroupsCount">0 ACTIVE</span>
+        </div>
+
+        <div class="strategy-groups-body" id="strategyGroupsContainer">
+          <div class="empty-groups-state" id="emptyGroupsState">
+            <div class="empty-icon-sm">🎯</div>
+            <div class="empty-groups-title">No Strategy Groups Created</div>
+            <div class="empty-groups-sub">Select 2 or more positions in the table above and click <strong>"Combine into Group"</strong> to set a combined Target &amp; Stop-Loss!</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Panel 4: Session Order History -->
+      <article class="panel history-panel">
+        <div class="panel-header">
+          <div class="panel-title-box">
+            <span class="panel-icon">📜</span>
+            <h3 class="panel-title">ORDER &amp; STRATEGY AUDIT HISTORY</h3>
+          </div>
+          <div class="history-header-badges">
+            <span class="badge-total-profit font-mono" id="totalLifetimeProfitBadge">🏆 TOTAL PROFIT BOOKED: +$15.00 USD</span>
+            <span class="badge-sub">24/7 AUDIT LOG</span>
+          </div>
+        </div>
+
+        <div class="history-body">
+          <div class="table-container mini-table-container">
+            <table class="mini-table">
+              <thead>
+                <tr>
+                  <th>TIME</th>
+                  <th>CONTRACT</th>
+                  <th>SIDE</th>
+                  <th>SIZE</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr class="empty-mini-row">
+                  <td colspan="5">No order submissions logged in this session.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+  </main>
+
+  <!-- Create Combined Group Modal -->
+  <div class="modal-overlay" id="groupModal">
+    <div class="modal-box modal-box-group">
+      <div class="modal-header">
+        <div class="modal-title">🧩 CREATE COMBINED STRATEGY GROUP</div>
+        <button class="modal-close" id="groupModalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <label for="groupNameInput">GROUP / STRATEGY NAME</label>
+          <input type="text" id="groupNameInput" placeholder="e.g. BTC 84000 Straddle / Pair #1" autocomplete="off">
+        </div>
+
+        <div class="group-selected-summary">
+          <div class="summary-label">INCLUDED LEGS:</div>
+          <div class="selected-legs-list" id="selectedLegsList">
+            <!-- Populated dynamically -->
+          </div>
+          <div class="modal-row group-mtm-row">
+            <span class="m-label">CURRENT COMBINED P&amp;L:</span>
+            <span class="m-val font-mono" id="groupCurrentMtm">$0.00</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="groupTargetInput">COMBINED TARGET PROFIT ($)</label>
+            <input type="number" id="groupTargetInput" min="0.1" step="any" placeholder="e.g. +50.00">
+            <span class="input-subnote">Auto-exits all legs when combined P&amp;L reaches this profit</span>
+          </div>
+
+          <div class="input-group">
+            <label for="groupStopLossInput">COMBINED STOP-LOSS ($)</label>
+            <input type="number" id="groupStopLossInput" min="0.1" step="any" placeholder="e.g. -30.00">
+            <span class="input-subnote">Auto-exits all legs when combined P&amp;L reaches this loss</span>
+          </div>
+        </div>
+
+        <div class="group-rule-note">
+          ⚡ <strong>Automated 1-Second Monitor:</strong> The dashboard will monitor the total net P&amp;L of these selected positions every second. As soon as the Combined Target or Combined Stop-Loss is hit, it will automatically transmit market-close orders for all legs in this group!
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="groupModalCancelBtn">CANCEL</button>
+        <button class="btn btn-start" id="groupModalSaveBtn">ACTIVATE COMBINED GROUP</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Strategy Group Modal -->
+  <div class="modal-overlay" id="editGroupModal">
+    <div class="modal-box modal-box-group">
+      <div class="modal-header">
+        <div class="modal-title">✏️ UPDATE COMBINED TARGET &amp; STOP-LOSS</div>
+        <button class="modal-close" id="editGroupModalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <label for="editGroupNameInput">STRATEGY NAME</label>
+          <input type="text" id="editGroupNameInput" autocomplete="off" disabled style="opacity: 0.75; cursor: not-allowed;">
+        </div>
+
+        <input type="hidden" id="editGroupIdInput">
+
+        <div class="form-grid">
+          <div class="input-group">
+            <label for="editGroupTargetInput">COMBINED TARGET PROFIT ($)</label>
+            <input type="number" id="editGroupTargetInput" min="0.1" step="any" placeholder="e.g. 20.00">
+            <span class="input-subnote">Auto-exits all legs when combined profit reaches this amount</span>
+          </div>
+
+          <div class="input-group">
+            <label for="editGroupStopLossInput">COMBINED STOP-LOSS ($)</label>
+            <input type="number" id="editGroupStopLossInput" min="0.1" step="any" placeholder="e.g. 30.00">
+            <span class="input-subnote">Auto-exits all legs when combined loss reaches this amount</span>
+          </div>
+        </div>
+
+        <div class="group-rule-note">
+          ⚡ <strong>Instant Cloud Update:</strong> Changing these thresholds updates the 24/7 background monitor immediately without touching or closing your positions.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="editGroupModalCancelBtn">CANCEL</button>
+        <button class="btn btn-start" id="editGroupModalSaveBtn">SAVE NEW TARGET &amp; SL</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Order Confirmation Modal -->
+  <div class="modal-overlay" id="orderModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">⚠️ CONFIRM LIVE EXCHANGE ORDER</div>
+        <button class="modal-close" id="modalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-summary">
+          <div class="modal-row">
+            <span class="m-label">CONTRACT:</span>
+            <span class="m-val font-mono" id="mSymbol">—</span>
+          </div>
+          <div class="modal-row">
+            <span class="m-label">ACTION:</span>
+            <span class="m-val font-mono" id="mAction">—</span>
+          </div>
+          <div class="modal-row">
+            <span class="m-label">QUANTITY:</span>
+            <span class="m-val font-mono" id="mQty">—</span>
+          </div>
+          <div class="modal-row">
+            <span class="m-label">ORDER TYPE / PRICE:</span>
+            <span class="m-val font-mono" id="mPrice">—</span>
+          </div>
+          <div class="modal-row" id="mBracketRow">
+            <span class="m-label">BRACKET PROTECTION:</span>
+            <span class="m-val font-mono" id="mBracket">—</span>
+          </div>
+        </div>
+        <div class="modal-warning">
+          This order will be immediately transmitted to Delta Exchange and will create real financial obligations.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="modalCancelBtn">CANCEL</button>
+        <button class="btn btn-submit-live" id="modalConfirmBtn">AUTHORIZE &amp; TRANSMIT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exit All Emergency Confirmation Modal -->
+  <div class="modal-overlay" id="exitModal">
+    <div class="modal-box modal-box-danger">
+      <div class="modal-header">
+        <div class="modal-title">🚨 AUTHORIZE EMERGENCY EXIT ALL</div>
+        <button class="modal-close" id="exitModalCloseBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-danger-alert">
+          WARNING: This will cancel ALL limit, stop, and reduce-only orders, and submit immediate market-close orders for ALL portfolio and isolated positions across your entire Delta account!
+        </div>
+        <p class="modal-instruction">
+          To confirm this emergency action, type <strong>EXIT ALL</strong> in the input below:
+        </p>
+        <input type="text" id="exitConfirmationInput" class="danger-input font-mono" placeholder="Type EXIT ALL here" autocomplete="off">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="exitModalCancelBtn">CANCEL</button>
+        <button class="btn btn-panic" id="exitModalConfirmBtn" disabled>CANCEL ALL &amp; CLOSE POSITIONS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Popup -->
+  <div class="toast-shelf" id="toastShelf"></div>
+
+  <!-- Front-End Script -->
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ version }}"></script>
+</body>
+</html>

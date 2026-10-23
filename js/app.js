@@ -1722,14 +1722,8 @@
       // Skip triggering if not in active MONITORING state
       if (group.status !== 'MONITORING') continue;
 
-      // If positions are no longer in open positions (e.g. closed manually elsewhere or settled)
-      if (matchedCount === 0 && state.currentPositions.length > 0) {
-        state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
-        saveGroupsToStorage();
-        renderStrategyGroups();
-        try {
-          await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
-        } catch (_) {}
+      // If none of the legs are currently matched in open positions (e.g. pending limit orders awaiting fill)
+      if (matchedCount === 0) {
         continue;
       }
 
@@ -2185,13 +2179,15 @@
       if (dom.trackerHeadline) {
         dom.trackerHeadline.textContent = `${grpName} (24/7 LIVE MONITORING)`;
       }
+      const activeLots = activeStrangleObj.lots || 50;
+      const hardCapVal = (activeLots * 1.50).toFixed(2);
       if (dom.trackerCountdown) {
         dom.trackerCountdown.className = `tracker-timer-pill font-mono pill-running ${mtmVal >= 0 ? 'pnl-positive' : 'pnl-negative'}`;
-        dom.trackerCountdown.textContent = `MTM: ${formattedMtm} | Target: ${tpVal} | SL: ${slVal}`;
+        dom.trackerCountdown.textContent = `MTM: ${formattedMtm} | Target: ${tpVal} | Dynamic SL: ${slVal} | Hard Cap: -$${hardCapVal}`;
       }
       if (dom.trackerDetailIcon) dom.trackerDetailIcon.textContent = '🛡️';
       if (dom.trackerDetailText) {
-        dom.trackerDetailText.innerHTML = `<strong>GOLDEN RULE ACTIVE:</strong> Trade chal raha hai aur 24/7 monitor ho raha hai. Agli nayi entry tabhi hogi jab ye trade Target Profit (${tpVal}) ya Stop-Loss (${slVal}) hit karke exit na ho jaye (Zero Overlap Rule).`;
+        dom.trackerDetailText.innerHTML = `<strong>GOLDEN RULE ACTIVE:</strong> Trade chal raha hai aur 24/7 monitor ho raha hai. Target Profit: <strong>${tpVal}</strong> | Dynamic SL: <strong>${slVal}</strong> | Hard SL Cap: <strong>-$${hardCapVal}</strong> ($1.50/lot max ceiling). Agli nayi entry tabhi hogi jab ye trade exit na ho jaye.`;
       }
 
       if (dom.sellingStatusBanner) {
@@ -2262,7 +2258,7 @@
         method: 'POST',
         body: JSON.stringify({ enabled }),
       });
-      if (res && res.success) {
+      if (res && (res.success || res.ok)) {
         showToast(
           enabled
             ? '⏰ Auto-Scheduler ENABLED: Strangle will auto-execute on 1st & next Saturday 00:00 IST!'
@@ -2326,7 +2322,7 @@
         body: JSON.stringify({ lots, custom_tp: customTp, custom_sl: customSl }),
       });
 
-      if (res && res.success) {
+      if (res && (res.success || res.ok)) {
         playSound('order');
         showToast(`🎉 Monthly Strangle Deployed! Group: ${res.group?.name || 'Active'}`, 'success', 6000);
         await syncStrategyGroups();

@@ -184,17 +184,29 @@ CREDENTIALS_TTL_SECONDS = 30 * 24 * 3600  # 30 days
 
 
 def load_persistent_credentials() -> Optional[Dict[str, Any]]:
-    """Load credentials from local disk if valid and within 30 days."""
-    if not os.path.exists(CREDENTIALS_FILE):
-        return None
-    try:
-        with open(CREDENTIALS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        expires_at = data.get("expires_at", 0)
-        if time.time() < expires_at and data.get("api_key") and data.get("api_secret"):
-            return data
-    except Exception as exc:
-        logger.warning("Could not read credentials file: %s", exc)
+    """Load credentials from local disk if valid, falling back to environment variables."""
+    if os.path.exists(CREDENTIALS_FILE):
+        try:
+            with open(CREDENTIALS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            expires_at = data.get("expires_at", 0)
+            if time.time() < expires_at and data.get("api_key") and data.get("api_secret"):
+                return data
+        except Exception as exc:
+            logger.warning("Could not read credentials file: %s", exc)
+
+    # Fallback to Environment Variables (Render, Cloud, Docker)
+    env_key = os.getenv("DELTA_API_KEY")
+    env_secret = os.getenv("DELTA_API_SECRET")
+    env_target = os.getenv("DELTA_ENV", "india")
+    if env_key and env_secret:
+        return {
+            "environment": env_target,
+            "api_key": env_key.strip(),
+            "api_secret": env_secret.strip(),
+            "saved_at": time.time(),
+            "expires_at": time.time() + CREDENTIALS_TTL_SECONDS,
+        }
     return None
 
 
@@ -883,7 +895,7 @@ def close_single_position(state: Dict[str, Any], pos: Dict[str, Any]) -> Dict[st
                 symbol=symbol,
                 product_id=product_id,
                 size=abs(size),
-                side="buy" if size > 0 else "sell",
+                side=exit_side,
             )
             return {"symbol": symbol, "side": exit_side, "size": abs(size), "result": res}
         except Exception as exc:
@@ -1130,6 +1142,11 @@ def api_positions_close():
                 except Exception:
                     pass
 
+        status_label = (
+            f"🎯 Target Profit Booked (+${profit_num:.2f} USD)"
+            if (is_target and profit_num is not None)
+            else (f"🎯 Target Profit Booked ({trigger_reason})" if is_target else ("🛑 Stop-Loss Closed" if is_sl else f"Closed ({trigger_reason})"))
+        )
         entry_data = {
             "symbol": f"{group_name} ({leg_names})",
             "side": side_label,
@@ -1312,6 +1329,7 @@ def api_exit_all():
 
 STRATEGY_GROUPS_FILE = os.path.join(os.path.dirname(__file__), ".strategy_groups.json")
 GROUPS_LOCK = threading.Lock()
+STRANGLE_EXECUTION_LOCK = threading.Lock()
 
 
 def load_server_strategy_groups() -> List[Dict[str, Any]]:
@@ -1352,17 +1370,17 @@ STRANGLE_SCHEDULER_FILE = os.path.join(os.path.dirname(__file__), ".strangle_sch
 def load_strangle_scheduler() -> Dict[str, Any]:
     """Load automated Saturday strangle scheduler settings."""
     if not os.path.exists(STRANGLE_SCHEDULER_FILE):
-        return {"enabled": False, "lots": 100, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": False}
+        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True}
     try:
         with open(STRANGLE_SCHEDULER_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, dict):
                 if "selling_enabled" not in data:
-                    data["selling_enabled"] = False
+                    data["selling_enabled"] = True
                 return data
-            return {"enabled": False, "lots": 100, "selling_enabled": False}
+            return {"enabled": True, "lots": 50, "selling_enabled": True}
     except Exception:
-        return {"enabled": False, "lots": 100, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": False}
+        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True}
 
 
 def save_strangle_scheduler(data: Dict[str, Any]) -> None:
@@ -1581,7 +1599,7 @@ def calculate_strangle_math(call_price: float, put_price: float, lots: int) -> D
 
 
 def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 100, custom_tp: Optional[float] = None, custom_sl: Optional[float] = None) -> Dict[str, Any]:
-    """Execute SELL orders for both Call and Put legs of Monthly Strangle, then register 24/7 monitoring group."""
+    """Execute SELL MARKET orders for both Call and Put legs of Monthly Strangle, then register 24/7 monitoring group."""
     selection = select_monthly_strangle_strikes(env)
     call_leg = selection["call"]
     put_leg = selection["put"]
@@ -1589,39 +1607,52 @@ def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 
     call_mark = call_leg["mark"]
     put_mark = put_leg["mark"]
 
-    # Marketable Limit Prices at Midpoint with 0.5% buffer for slippage protection
-    call_mid = ((call_leg["bid"] + call_leg["ask"]) / 2.0) if (call_leg["bid"] > 0 and call_leg["ask"] > 0) else call_mark
-    put_mid = ((put_leg["bid"] + put_leg["ask"]) / 2.0) if (put_leg["bid"] > 0 and put_leg["ask"] > 0) else put_mark
-
-    call_limit = round(call_mid * 0.995, 1)
-    put_limit = round(put_mid * 0.995, 1)
-
     math_data = calculate_strangle_math(call_mark, put_mark, lots)
     rest_client = DeltaRESTClient(env, key, secret)
 
-    # 1. Place SELL CALL
+    # 1. Place SELL CALL via MARKET ORDER for instant execution
     call_order_payload = {
         "product_id": int(call_leg["product_id"]),
         "size": int(lots),
         "side": "sell",
-        "order_type": "limit_order",
-        "limit_price": str(call_limit),
-        "time_in_force": "gtc",
+        "order_type": "market_order",
+        "time_in_force": "ioc",
         "client_order_id": f"str-c-{secrets.token_hex(4)}",
     }
     call_res = rest_client.authenticated_request("POST", "/v2/orders", body=call_order_payload)
 
-    # 2. Place SELL PUT
+    # 2. Place SELL PUT via MARKET ORDER for instant execution with emergency rollback
     put_order_payload = {
         "product_id": int(put_leg["product_id"]),
         "size": int(lots),
         "side": "sell",
-        "order_type": "limit_order",
-        "limit_price": str(put_limit),
-        "time_in_force": "gtc",
+        "order_type": "market_order",
+        "time_in_force": "ioc",
         "client_order_id": f"str-p-{secrets.token_hex(4)}",
     }
-    put_res = rest_client.authenticated_request("POST", "/v2/orders", body=put_order_payload)
+    try:
+        put_res = rest_client.authenticated_request("POST", "/v2/orders", body=put_order_payload)
+    except Exception as put_err:
+        logger.critical("Monthly Strangle Put order failed after Call order succeeded! Initiating emergency rollback on Call leg: %s", put_err)
+        try:
+            rollback_payload = {
+                "product_id": int(call_leg["product_id"]),
+                "size": int(lots),
+                "side": "buy",
+                "order_type": "market_order",
+                "reduce_only": True,
+                "time_in_force": "ioc",
+                "client_order_id": f"rb-c-{secrets.token_hex(4)}",
+            }
+            rest_client.authenticated_request("POST", "/v2/orders", body=rollback_payload)
+            logger.info("Emergency rollback successful: Call leg closed via market order.")
+        except Exception as rb_err:
+            logger.critical("CRITICAL: Call leg rollback failed: %s", rb_err)
+        raise DeltaAPIError(f"Put leg execution failed ({put_err}). Emergency rollback executed on Call leg.") from put_err
+
+    # Determine average fill price or fallback to mark
+    call_fill = safe_float((call_res or {}).get("average_fill_price")) or call_mark
+    put_fill = safe_float((put_res or {}).get("average_fill_price")) or put_mark
 
     final_tp = round(float(custom_tp), 2) if (custom_tp is not None and safe_float(custom_tp) > 0) else math_data["tp_dollar"]
     final_sl = round(float(custom_sl), 2) if (custom_sl is not None and safe_float(custom_sl) > 0) else math_data["final_sl_dollar"]
@@ -1639,14 +1670,14 @@ def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 
                 "symbol": call_leg["symbol"],
                 "size": -int(lots),
                 "side": "sell",
-                "entry_price": call_mid,
+                "entry_price": call_fill,
             },
             {
                 "product_id": put_leg["product_id"],
                 "symbol": put_leg["symbol"],
                 "size": -int(lots),
                 "side": "sell",
-                "entry_price": put_mid,
+                "entry_price": put_fill,
             },
         ],
         "target": final_tp,
@@ -1662,10 +1693,11 @@ def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 
         groups.insert(0, new_group)
         save_server_strategy_groups(groups)
 
-    logger.info("Successfully deployed BTC Monthly Strangle: %s | Target: +$%.2f | SL: -$%.2f", new_group["name"], new_group["target"], new_group["stopLoss"])
+    logger.info("Successfully deployed BTC Monthly Strangle via Market Order: %s | Target: +$%.2f | SL: -$%.2f", new_group["name"], new_group["target"], new_group["stopLoss"])
 
     return {
         "ok": True,
+        "success": True,
         "group": new_group,
         "call_order": call_res,
         "put_order": put_res,
@@ -1677,169 +1709,15 @@ def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 
 def run_strategy_monitor_daemon():
     """Autonomous 24/7 background worker that monitors strategy groups and executes auto-close even when browser is closed."""
     logger.info("Starting autonomous 24/7 strategy group monitoring daemon.")
+    last_sched_check = 0.0
     while True:
         try:
             time.sleep(1.0)
-            with GROUPS_LOCK:
-                groups = load_server_strategy_groups()
-                monitoring_groups = [g for g in groups if g.get("status") == "MONITORING"]
-                if not monitoring_groups:
-                    continue
+            now_ts = time.time()
 
-                creds = load_persistent_credentials()
-                if not creds:
-                    continue
-
-                env = creds.get("environment", "india")
-                key = creds.get("api_key", "")
-                secret = creds.get("api_secret", "")
-                if not key or not secret:
-                    continue
-
-                # Query live positions
-                client = DeltaRESTClient(env, key, secret)
-                raw_positions = client.authenticated_request("GET", "/v2/positions/margined")
-                if not isinstance(raw_positions, list):
-                    continue
-
-                products = get_cached_products(env)
-                prod_map = {p.get("id"): p for p in products if "id" in p}
-                sym_map = {p.get("symbol"): p for p in products if "symbol" in p}
-
-                pos_by_key = {}
-                for p in raw_positions:
-                    size_val = safe_float(p.get("size"))
-                    if size_val == 0:
-                        continue
-                    sym = str(p.get("product_symbol") or (p.get("product") or {}).get("symbol") or "")
-                    prod_id = p.get("product_id")
-
-                    prod = prod_map.get(prod_id) or sym_map.get(sym) or {}
-                    contract_val = safe_float(prod.get("contract_value"), 0.001 if "BTC" in sym else 0.01 if "ETH" in sym else 1.0)
-                    contracts_count = abs(size_val)
-                    asset_qty = contracts_count * contract_val
-
-                    entry_price = safe_float(p.get("entry_price"))
-                    mark_price = safe_float(p.get("mark_price"))
-                    is_long = size_val > 0
-
-                    best_bid = 0.0
-                    best_ask = 0.0
-                    try:
-                        t_resp = client.public_get(f"/v2/tickers/{sym}")
-                        if isinstance(t_resp, dict):
-                            quotes = t_resp.get("quotes") or {}
-                            best_bid = safe_float(quotes.get("best_bid"))
-                            best_ask = safe_float(quotes.get("best_ask"))
-                            t_mark = safe_float(t_resp.get("mark_price"))
-                            if t_mark > 0:
-                                mark_price = t_mark
-                    except Exception:
-                        pass
-
-                    if is_long:
-                        exit_price = best_bid if best_bid > 0 else mark_price
-                        upnl = (exit_price - entry_price) * asset_qty
-                    else:
-                        exit_price = best_ask if best_ask > 0 else mark_price
-                        upnl = (entry_price - exit_price) * asset_qty
-
-                    item = {
-                        "product_id": prod_id,
-                        "symbol": sym,
-                        "size": size_val,
-                        "entry_price": entry_price,
-                        "mark_price": mark_price,
-                        "exit_price": exit_price,
-                        "unrealized_pnl": upnl,
-                    }
-                    pos_by_key[f"{prod_id}_{sym}"] = item
-                    pos_by_key[str(prod_id)] = item
-                    pos_by_key[sym] = item
-
-                dirty = False
-                for grp in groups:
-                    if grp.get("status") != "MONITORING":
-                        continue
-
-                    grp_legs = grp.get("positions", [])
-                    combined_mtm = 0.0
-                    matched_count = 0
-
-                    for leg in grp_legs:
-                        key1 = f"{leg.get('product_id')}_{leg.get('symbol')}"
-                        key2 = str(leg.get('product_id'))
-                        key3 = str(leg.get('symbol'))
-                        matched = pos_by_key.get(key1) or pos_by_key.get(key2) or pos_by_key.get(key3)
-                        if matched:
-                            combined_mtm += matched["unrealized_pnl"]
-                            matched_count += 1
-
-                    grp["current_mtm"] = round(combined_mtm, 2)
-                    grp["last_checked"] = datetime.now(timezone.utc).isoformat()
-                    target = safe_float(grp.get("target"), 999999)
-                    stop_loss = safe_float(grp.get("stopLoss"), 999999)
-
-                    # Trigger Target Profit Auto-Close
-                    if combined_mtm >= target:
-                        logger.info("🎯 TARGET HIT for group '%s'! MTM=+$%.2f >= Target=+$%.2f. Auto-closing all legs!", grp.get("name"), combined_mtm, target)
-                        grp["status"] = "TARGET_HIT"
-                        grp["exit_reason"] = f"Target Profit Hit (+${combined_mtm:.2f})"
-                        dirty = True
-                        dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
-                        for leg in grp_legs:
-                            try:
-                                close_single_position(dummy_state, leg)
-                            except Exception as c_err:
-                                logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
-
-                        # Archive to persistent history
-                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
-                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
-                        add_history_entry(dummy_state, {
-                            "symbol": f"{grp.get('name')} ({leg_syms})",
-                            "side": "PROFIT EXIT",
-                            "quantity": f"{total_qty} Lots",
-                            "price": f"+${combined_mtm:.2f}",
-                            "realized_profit": round(float(combined_mtm), 2),
-                            "order_type": "strategy_target_exit",
-                            "status": f"🎯 Target Profit Booked (+${combined_mtm:.2f} USD)",
-                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
-                        })
-
-                    # Trigger Stop-Loss Auto-Close
-                    elif combined_mtm <= -abs(stop_loss):
-                        logger.info("🛑 STOP-LOSS HIT for group '%s'! MTM=-$%.2f <= SL=-$%.2f. Auto-closing all legs!", grp.get("name"), abs(combined_mtm), stop_loss)
-                        grp["status"] = "SL_HIT"
-                        grp["exit_reason"] = f"Stop Loss Hit (-${abs(combined_mtm):.2f})"
-                        dirty = True
-                        dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
-                        for leg in grp_legs:
-                            try:
-                                close_single_position(dummy_state, leg)
-                            except Exception as c_err:
-                                logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
-
-                        # Archive to persistent history
-                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
-                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
-                        add_history_entry(dummy_state, {
-                            "symbol": f"{grp.get('name')} ({leg_syms})",
-                            "side": "SL EXIT",
-                            "quantity": f"{total_qty} Lots",
-                            "price": f"-${abs(combined_mtm):.2f}",
-                            "order_type": "strategy_sl_exit",
-                            "status": f"🛑 Stop-Loss Closed (-${abs(combined_mtm):.2f} USD)",
-                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
-                        })
-
-                if dirty:
-                    # Keep only active groups in persistent strategy groups so completed groups disappear from the front panel!
-                    active_only = [g for g in groups if g.get("status") == "MONITORING"]
-                    save_server_strategy_groups(active_only)
-
-            # Automated Monthly Strangle Saturday 00:00 IST Scheduler
-            if int(time.time()) % 20 == 0:
+            # 1. Automated Monthly Strangle Saturday IST Scheduler (Runs 24/7 regardless of active groups)
+            if now_ts - last_sched_check >= 15.0:
+                last_sched_check = now_ts
                 try:
                     sched = load_strangle_scheduler()
                     if sched.get("enabled") and sched.get("selling_enabled", True):
@@ -1850,33 +1728,230 @@ def run_strategy_monitor_daemon():
                             now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
                             # Saturday is weekday 5
                             if now_ist.weekday() == 5:
-                                # Trigger window: Saturday midnight 00:00 to 00:20 IST
-                                if now_ist.hour == 0 and now_ist.minute <= 20:
-                                    current_date_str = now_ist.strftime("%Y-%m-%d")
-                                    if sched.get("last_executed_date") != current_date_str:
-                                        logger.info("⏰ SATURDAY 00:00 IST TRIGGER: Deploying automated Monthly Strangle (%s Lots)!", sched.get("lots", 100))
-                                        sched_creds = load_persistent_credentials()
-                                        if sched_creds and sched_creds.get("api_key") and sched_creds.get("api_secret"):
-                                            res = execute_monthly_strangle_order(
-                                                sched_creds.get("environment", "india"),
-                                                sched_creds.get("api_key"),
-                                                sched_creds.get("api_secret"),
-                                                lots=sched.get("lots", 100),
-                                            )
-                                            sched["last_executed_date"] = current_date_str
-                                            save_strangle_scheduler(sched)
-                                            logger.info("✅ Automated Monthly Strangle deployed successfully! Group ID: %s", res.get("group", {}).get("id"))
+                                current_date_str = now_ist.strftime("%Y-%m-%d")
+                                if sched.get("last_executed_date") != current_date_str:
+                                    logger.info("⏰ SATURDAY IST TRIGGER: Deploying automated Monthly Strangle (%s Lots)!", sched.get("lots", 50))
+                                    sched_creds = load_persistent_credentials()
+                                    if sched_creds and sched_creds.get("api_key") and sched_creds.get("api_secret"):
+                                        if STRANGLE_EXECUTION_LOCK.acquire(blocking=False):
+                                            try:
+                                                res = execute_monthly_strangle_order(
+                                                    sched_creds.get("environment", "india"),
+                                                    sched_creds.get("api_key"),
+                                                    sched_creds.get("api_secret"),
+                                                    lots=int(sched.get("lots", 50)),
+                                                )
+                                                sched["last_executed_date"] = current_date_str
+                                                save_strangle_scheduler(sched)
+                                                logger.info("✅ Automated Monthly Strangle deployed successfully! Group ID: %s", res.get("group", {}).get("id"))
+                                            finally:
+                                                STRANGLE_EXECUTION_LOCK.release()
                                         else:
-                                            logger.warning("Auto-scheduler could not execute: No persistent credentials saved.")
+                                            logger.info("Scheduler waiting: Strangle execution already in progress.")
+                                    else:
+                                        logger.warning("Auto-scheduler could not execute: No persistent credentials saved.")
                 except Exception as sched_err:
                     logger.debug("Auto-scheduler loop error: %s", sched_err)
+
+            # 2. 24/7 Strategy Groups Target Profit & Stop-Loss Monitor
+            with GROUPS_LOCK:
+                groups = load_server_strategy_groups()
+                monitoring_groups = [g for g in groups if g.get("status") == "MONITORING"]
+            if not monitoring_groups:
+                continue
+
+            creds = load_persistent_credentials()
+            if not creds:
+                continue
+
+            env = creds.get("environment", "india")
+            key = creds.get("api_key", "")
+            secret = creds.get("api_secret", "")
+            if not key or not secret:
+                continue
+
+            # Query live positions OUTSIDE the lock
+            client = DeltaRESTClient(env, key, secret)
+            try:
+                raw_positions = client.authenticated_request("GET", "/v2/positions/margined")
+            except Exception as pos_fetch_err:
+                logger.debug("Daemon positions query error: %s", pos_fetch_err)
+                continue
+
+            if not isinstance(raw_positions, list):
+                continue
+
+            products = get_cached_products(env)
+            prod_map = {p.get("id"): p for p in products if "id" in p}
+            sym_map = {p.get("symbol"): p for p in products if "symbol" in p}
+
+            pos_by_key = {}
+            for p in raw_positions:
+                size_val = safe_float(p.get("size"))
+                if size_val == 0:
+                    continue
+                sym = str(p.get("product_symbol") or (p.get("product") or {}).get("symbol") or "")
+                prod_id = p.get("product_id")
+
+                prod = prod_map.get(prod_id) or sym_map.get(sym) or {}
+                contract_val = safe_float(prod.get("contract_value"), 0.001 if "BTC" in sym else 0.01 if "ETH" in sym else 1.0)
+                contracts_count = abs(size_val)
+                asset_qty = contracts_count * contract_val
+
+                entry_price = safe_float(p.get("entry_price"))
+                mark_price = safe_float(p.get("mark_price"))
+                is_long = size_val > 0
+
+                best_bid = 0.0
+                best_ask = 0.0
+                try:
+                    t_resp = client.public_get(f"/v2/tickers/{sym}")
+                    if isinstance(t_resp, dict):
+                        quotes = t_resp.get("quotes") or {}
+                        best_bid = safe_float(quotes.get("best_bid"))
+                        best_ask = safe_float(quotes.get("best_ask"))
+                        t_mark = safe_float(t_resp.get("mark_price"))
+                        if t_mark > 0:
+                            mark_price = t_mark
+                except Exception:
+                    pass
+
+                if is_long:
+                    exit_price = best_bid if best_bid > 0 else mark_price
+                    upnl = (exit_price - entry_price) * asset_qty
+                else:
+                    exit_price = best_ask if best_ask > 0 else mark_price
+                    upnl = (entry_price - exit_price) * asset_qty
+
+                item = {
+                    "product_id": prod_id,
+                    "symbol": sym,
+                    "size": size_val,
+                    "entry_price": entry_price,
+                    "mark_price": mark_price,
+                    "exit_price": exit_price,
+                    "unrealized_pnl": upnl,
+                }
+                pos_by_key[f"{prod_id}_{sym}"] = item
+                pos_by_key[str(prod_id)] = item
+                pos_by_key[sym] = item
+
+            dirty = False
+            for grp in groups:
+                if grp.get("status") != "MONITORING":
+                    continue
+
+                grp_legs = grp.get("positions", [])
+                combined_mtm = 0.0
+                matched_count = 0
+
+                for leg in grp_legs:
+                    key1 = f"{leg.get('product_id')}_{leg.get('symbol')}"
+                    key2 = str(leg.get('product_id'))
+                    key3 = str(leg.get('symbol'))
+                    matched = pos_by_key.get(key1) or pos_by_key.get(key2) or pos_by_key.get(key3)
+                    if matched:
+                        combined_mtm += matched["unrealized_pnl"]
+                        matched_count += 1
+
+                grp["current_mtm"] = round(combined_mtm, 2)
+                grp["last_checked"] = datetime.now(timezone.utc).isoformat()
+                target = safe_float(grp.get("target"), 999999)
+                stop_loss = safe_float(grp.get("stopLoss"), 999999)
+
+                # Trigger Target Profit Auto-Close
+                if combined_mtm >= target:
+                    logger.info("🎯 TARGET HIT for group '%s'! MTM=+$%.2f >= Target=+$%.2f. Auto-closing all legs!", grp.get("name"), combined_mtm, target)
+                    grp["status"] = "TARGET_HIT"
+                    grp["exit_reason"] = f"Target Profit Hit (+${combined_mtm:.2f})"
+                    dirty = True
+                    dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
+                    for leg in grp_legs:
+                        try:
+                            close_single_position(dummy_state, leg)
+                        except Exception as c_err:
+                            logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
+
+                    # Archive to persistent history
+                    leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                    total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                    add_history_entry(dummy_state, {
+                        "symbol": f"{grp.get('name')} ({leg_syms})",
+                        "side": "PROFIT EXIT",
+                        "quantity": f"{total_qty} Lots",
+                        "price": f"+${combined_mtm:.2f}",
+                        "realized_profit": round(float(combined_mtm), 2),
+                        "order_type": "strategy_target_exit",
+                        "status": f"🎯 Target Profit Booked (+${combined_mtm:.2f} USD)",
+                        "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                    })
+
+                # Trigger Stop-Loss Auto-Close
+                elif combined_mtm <= -abs(stop_loss):
+                    logger.info("🛑 STOP-LOSS HIT for group '%s'! MTM=-$%.2f <= SL=-$%.2f. Auto-closing all legs!", grp.get("name"), abs(combined_mtm), stop_loss)
+                    grp["status"] = "SL_HIT"
+                    grp["exit_reason"] = f"Stop Loss Hit (-${abs(combined_mtm):.2f})"
+                    dirty = True
+                    dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
+                    for leg in grp_legs:
+                        try:
+                            close_single_position(dummy_state, leg)
+                        except Exception as c_err:
+                            logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
+
+                    # Archive to persistent history
+                    leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                    total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                    add_history_entry(dummy_state, {
+                        "symbol": f"{grp.get('name')} ({leg_syms})",
+                        "side": "SL EXIT",
+                        "quantity": f"{total_qty} Lots",
+                        "price": f"-${abs(combined_mtm):.2f}",
+                        "order_type": "strategy_sl_exit",
+                        "status": f"🛑 Stop-Loss Closed (-${abs(combined_mtm):.2f} USD)",
+                        "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                    })
+
+            # Re-acquire GROUPS_LOCK briefly to persist state
+            with GROUPS_LOCK:
+                live_groups = load_server_strategy_groups()
+                status_map = {g["id"]: g for g in groups if "id" in g}
+                updated_groups = []
+                for lg in live_groups:
+                    gid = lg.get("id")
+                    if gid in status_map:
+                        lg["current_mtm"] = status_map[gid].get("current_mtm", lg.get("current_mtm"))
+                        lg["last_checked"] = status_map[gid].get("last_checked", lg.get("last_checked"))
+                        if status_map[gid].get("status") in ("TARGET_HIT", "SL_HIT"):
+                            lg["status"] = status_map[gid]["status"]
+                            lg["exit_reason"] = status_map[gid].get("exit_reason")
+                    updated_groups.append(lg)
+
+                if dirty:
+                    active_only = [g for g in updated_groups if g.get("status") == "MONITORING"]
+                    save_server_strategy_groups(active_only)
+                else:
+                    save_server_strategy_groups(updated_groups)
 
         except Exception as loop_err:
             logger.debug("Strategy monitor daemon loop exception: %s", loop_err)
 
 
 # Start autonomous monitoring daemon thread on startup
-threading.Thread(target=run_strategy_monitor_daemon, daemon=True).start()
+_DAEMON_STARTED = False
+_DAEMON_START_LOCK = threading.Lock()
+
+def start_strategy_monitor_daemon_once():
+    """Ensure strategy monitoring daemon starts exactly once across imports/workers."""
+    global _DAEMON_STARTED
+    with _DAEMON_START_LOCK:
+        if not _DAEMON_STARTED:
+            _DAEMON_STARTED = True
+            t = threading.Thread(target=run_strategy_monitor_daemon, daemon=True, name="StrategyMonitorDaemon")
+            t.start()
+            logger.info("Autonomous 24/7 strategy monitor daemon thread initialized.")
+
+start_strategy_monitor_daemon_once()
 
 
 @app.route("/api/strategy-groups", methods=["GET", "POST"])
@@ -1950,39 +2025,42 @@ def api_strangle_preview():
 @app.post("/api/strategy/monthly-strangle/execute")
 def api_strangle_execute():
     """Execute live 1-click Strangle order and activate 24/7 monitoring."""
-    state = get_browser_state()
-    key = state.get("api_key")
-    secret = state.get("api_secret")
-    env = state.get("environment", "india")
-
-    if not key or not secret:
-        creds = load_persistent_credentials()
-        if creds:
-            key = creds.get("api_key")
-            secret = creds.get("api_secret")
-            env = creds.get("environment", "india")
-
-    if not key or not secret:
-        return jsonify(error="API credentials required to execute live Strangle order."), 401
-
-    # Check Master Selling Switch
-    sched = load_strangle_scheduler()
-    if not sched.get("selling_enabled", True):
-        return jsonify(error="Option Selling is currently PAUSED (OFF). Turn ON the Option Selling switch to deploy trades."), 400
-
-    data = request.get_json(silent=True) or {}
-    lots = int(safe_float(data.get("lots", 100), 100))
-    if lots <= 0:
-        return jsonify(error="Lots must be greater than zero."), 400
-
-    # Golden Rule: No overlapping active Monthly Strangle trades
-    with GROUPS_LOCK:
-        groups = load_server_strategy_groups()
-    active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and g.get("strategy_type") == "MONTHLY_STRANGLE"), None)
-    if active_strangle:
-        return jsonify(error=f"Golden Rule Active: Monthly Strangle '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
+    if not STRANGLE_EXECUTION_LOCK.acquire(blocking=False):
+        return jsonify(error="An execution is already in progress. Please wait a moment."), 429
 
     try:
+        state = get_browser_state()
+        key = state.get("api_key")
+        secret = state.get("api_secret")
+        env = state.get("environment", "india")
+
+        if not key or not secret:
+            creds = load_persistent_credentials()
+            if creds:
+                key = creds.get("api_key")
+                secret = creds.get("api_secret")
+                env = creds.get("environment", "india")
+
+        if not key or not secret:
+            return jsonify(error="API credentials required to execute live Strangle order."), 401
+
+        # Check Master Selling Switch
+        sched = load_strangle_scheduler()
+        if not sched.get("selling_enabled", True):
+            return jsonify(error="Option Selling is currently PAUSED (OFF). Turn ON the Option Selling switch to deploy trades."), 400
+
+        data = request.get_json(silent=True) or {}
+        lots = int(safe_float(data.get("lots", 100), 100))
+        if lots <= 0:
+            return jsonify(error="Lots must be greater than zero."), 400
+
+        # Golden Rule: No overlapping active Monthly Strangle trades
+        with GROUPS_LOCK:
+            groups = load_server_strategy_groups()
+        active_strangle = next((g for g in groups if g.get("status") == "MONITORING" and g.get("strategy_type") == "MONTHLY_STRANGLE"), None)
+        if active_strangle:
+            return jsonify(error=f"Golden Rule Active: Monthly Strangle '{active_strangle.get('name')}' is already live! Wait for it to close before opening a new trade."), 400
+
         custom_tp = safe_float(data.get("custom_tp")) if data.get("custom_tp") is not None else None
         custom_sl = safe_float(data.get("custom_sl")) if data.get("custom_sl") is not None else None
         result = execute_monthly_strangle_order(env, key, secret, lots=lots, custom_tp=custom_tp, custom_sl=custom_sl)
@@ -1990,6 +2068,8 @@ def api_strangle_execute():
     except Exception as exc:
         logger.exception("Strangle execution error")
         return jsonify(error=str(exc)), 500
+    finally:
+        STRANGLE_EXECUTION_LOCK.release()
 
 
 @app.route("/api/strategy/monthly-strangle/selling-toggle", methods=["GET", "POST"])
