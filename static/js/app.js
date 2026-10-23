@@ -1561,10 +1561,21 @@
         return;
       }
 
-      // 2. If server has NO active groups, clear any old local completed groups so screen stays clean
+      // 2. If server has NO active groups, check if we have local active groups with open positions to auto-restore
+      const localActive = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING');
+      if (localActive.length > 0) {
+        for (const grp of localActive) {
+          try {
+            await apiFetch('/api/strategy-groups', {
+              method: 'POST',
+              body: JSON.stringify({ group: grp }),
+            });
+          } catch (_) {}
+        }
+        return;
+      }
       state.strategyGroups = [];
       try {
-        localStorage.removeItem('delta_strategy_groups');
         localStorage.setItem('delta_strategy_groups', JSON.stringify([]));
       } catch (_) {}
       renderStrategyGroups();
@@ -1749,9 +1760,7 @@
               reason: `Combined Target Hit (+$${combinedMtm.toFixed(2)})`,
             }),
           });
-          try {
-            await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
-          } catch (_) {}
+          await syncStrategyGroups();
           await refreshPositions();
           await refreshHistory();
         } catch (err) {
@@ -1780,9 +1789,7 @@
               reason: `Combined Stop-Loss Hit (-$${Math.abs(combinedMtm).toFixed(2)})`,
             }),
           });
-          try {
-            await apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
-          } catch (_) {}
+          await syncStrategyGroups();
           await refreshPositions();
           await refreshHistory();
         } catch (err) {

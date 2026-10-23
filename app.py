@@ -983,12 +983,13 @@ def api_positions():
             # Option exit price:
             # Long position exits at Best Bid (or Mark Price if bid empty)
             # Short position exits at Best Ask (or Mark Price if ask empty)
+            # Exact Delta Exchange Terminal Matching UPNL using official Mark Price
             if is_long:
                 exit_price = best_bid if best_bid > 0 else mark_price
-                upnl = (exit_price - entry_price) * asset_qty
+                upnl = (mark_price - entry_price) * asset_qty
             else:
                 exit_price = best_ask if best_ask > 0 else mark_price
-                upnl = (entry_price - exit_price) * asset_qty
+                upnl = (entry_price - mark_price) * asset_qty
 
             entry_value = entry_price * asset_qty
             current_value = (mark_price if mark_price > 0 else exit_price) * asset_qty
@@ -1332,27 +1333,111 @@ GROUPS_LOCK = threading.Lock()
 STRANGLE_EXECUTION_LOCK = threading.Lock()
 
 
-def load_server_strategy_groups() -> List[Dict[str, Any]]:
-    """Load persistent strategy groups from disk (only active MONITORING groups)."""
-    if not os.path.exists(STRATEGY_GROUPS_FILE):
-        return []
+def reconcile_open_strangle_positions() -> List[Dict[str, Any]]:
+    """Auto-discover open Monthly Strangle positions on Delta Exchange if disk groups are empty."""
     try:
-        with open(STRATEGY_GROUPS_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                # Filter out old archived group ID (October 12) while preserving all user-created groups
-                ARCHIVED_HISTORICAL_IDS = {"grp_1791791406521"}
-                active = [
-                    g for g in data
-                    if isinstance(g, dict)
-                    and g.get("status") == "MONITORING"
-                    and g.get("id") not in ARCHIVED_HISTORICAL_IDS
-                ]
-                return active
+        creds = load_persistent_credentials()
+        if not creds:
             return []
+        client = DeltaRESTClient(creds["environment"], creds["api_key"], creds["api_secret"])
+        raw = client.authenticated_request("GET", "/v2/positions/margined")
+        if not isinstance(raw, list):
+            return []
+
+        short_calls = []
+        short_puts = []
+        for p in raw:
+            sym = str(p.get("product_symbol") or (p.get("product") or {}).get("symbol") or "")
+            sz = safe_float(p.get("size"))
+            if sz < 0 and "BTC" in sym:
+                if sym.startswith("C-BTC-"):
+                    short_calls.append(p)
+                elif sym.startswith("P-BTC-"):
+                    short_puts.append(p)
+
+        for c in short_calls:
+            c_sym = str(c.get("product_symbol") or (c.get("product") or {}).get("symbol") or "")
+            c_parts = c_sym.split("-")
+            c_exp = c_parts[-1] if len(c_parts) >= 4 else None
+            for p in short_puts:
+                p_sym = str(p.get("product_symbol") or (p.get("product") or {}).get("symbol") or "")
+                p_parts = p_sym.split("-")
+                p_exp = p_parts[-1] if len(p_parts) >= 4 else None
+                if c_exp and c_exp == p_exp:
+                    lots = abs(int(safe_float(c.get("size"))))
+                    c_entry = safe_float(c.get("entry_price"))
+                    p_entry = safe_float(p.get("entry_price"))
+                    total_credit = round((c_entry + p_entry) * (lots * 0.001), 2)
+                    tp = round(total_credit * 0.20, 2)
+                    sl = round(tp * 2.0, 2)
+                    hard_cap = round(lots * 1.50, 2)
+                    final_sl = round(min(hard_cap, sl), 2)
+                    group_id = f"grp_strangle_{int(time.time() * 1000)}"
+                    reconciled_group = {
+                        "id": group_id,
+                        "name": f"BTC Monthly Strangle ({lots} Lots)",
+                        "strategy_type": "MONTHLY_STRANGLE",
+                        "lots": lots,
+                        "positions": [
+                            {
+                                "product_id": c.get("product_id"),
+                                "symbol": c_sym,
+                                "size": -lots,
+                                "side": "sell",
+                                "entry_price": c_entry,
+                            },
+                            {
+                                "product_id": p.get("product_id"),
+                                "symbol": p_sym,
+                                "size": -lots,
+                                "side": "sell",
+                                "entry_price": p_entry,
+                            },
+                        ],
+                        "target": tp,
+                        "stopLoss": final_sl,
+                        "total_credit": total_credit,
+                        "status": "MONITORING",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "notes": f"Auto-Reconciled Strangle {lots} Lots · Target TP: +${tp} | Dynamic SL: -${final_sl}",
+                    }
+                    logger.info("Auto-reconciled open Strangle positions into Strategy Group: %s", reconciled_group["name"])
+                    return [reconciled_group]
     except Exception as exc:
-        logger.warning("Could not read strategy groups: %s", exc)
-        return []
+        logger.debug("Strangle position auto-reconciliation error: %s", exc)
+    return []
+
+
+def load_server_strategy_groups() -> List[Dict[str, Any]]:
+    """Load persistent strategy groups from disk, auto-reconciling open Delta Strangle positions if missing."""
+    active = []
+    if os.path.exists(STRATEGY_GROUPS_FILE):
+        try:
+            with open(STRATEGY_GROUPS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    ARCHIVED_HISTORICAL_IDS = {"grp_1791791406521"}
+                    active = [
+                        g for g in data
+                        if isinstance(g, dict)
+                        and g.get("status") == "MONITORING"
+                        and g.get("id") not in ARCHIVED_HISTORICAL_IDS
+                    ]
+        except Exception as exc:
+            logger.warning("Could not read strategy groups: %s", exc)
+
+    # Auto-Reconciliation: If no active Monthly Strangle is present, check Delta Exchange open positions directly!
+    has_strangle = any(g.get("strategy_type") == "MONTHLY_STRANGLE" for g in active)
+    if not has_strangle:
+        reconciled = reconcile_open_strangle_positions()
+        if reconciled:
+            active.extend(reconciled)
+            try:
+                save_server_strategy_groups(active)
+            except Exception:
+                pass
+
+    return active
 
 
 def save_server_strategy_groups(groups: List[Dict[str, Any]]) -> None:
@@ -1370,7 +1455,7 @@ STRANGLE_SCHEDULER_FILE = os.path.join(os.path.dirname(__file__), ".strangle_sch
 def load_strangle_scheduler() -> Dict[str, Any]:
     """Load automated Saturday strangle scheduler settings."""
     if not os.path.exists(STRANGLE_SCHEDULER_FILE):
-        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True}
+        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True, "current_month": "", "month_trade_count": 0}
     try:
         with open(STRANGLE_SCHEDULER_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -1380,7 +1465,7 @@ def load_strangle_scheduler() -> Dict[str, Any]:
                 return data
             return {"enabled": True, "lots": 50, "selling_enabled": True}
     except Exception:
-        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True}
+        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True, "current_month": "", "month_trade_count": 0}
 
 
 def save_strangle_scheduler(data: Dict[str, Any]) -> None:
@@ -1729,8 +1814,17 @@ def run_strategy_monitor_daemon():
                             # Saturday is weekday 5
                             if now_ist.weekday() == 5:
                                 current_date_str = now_ist.strftime("%Y-%m-%d")
-                                if sched.get("last_executed_date") != current_date_str:
-                                    logger.info("⏰ SATURDAY IST TRIGGER: Deploying automated Monthly Strangle (%s Lots)!", sched.get("lots", 50))
+                                current_month_str = now_ist.strftime("%Y-%m")
+                                if sched.get("current_month") != current_month_str:
+                                    sched["current_month"] = current_month_str
+                                    sched["month_trade_count"] = 0
+
+                                # Rulebook Section 2: Maximum 2 trades per calendar month
+                                if sched.get("month_trade_count", 0) >= 2:
+                                    logger.debug("Monthly limit reached: 2 trades already deployed in %s. Standing by for next month.", current_month_str)
+                                elif sched.get("last_executed_date") != current_date_str:
+                                    trade_num = sched.get("month_trade_count", 0) + 1
+                                    logger.info("⏰ SATURDAY IST TRIGGER: Deploying automated Monthly Strangle (%s Lots) [Trade #%d of %s]!", sched.get("lots", 50), trade_num, current_month_str)
                                     sched_creds = load_persistent_credentials()
                                     if sched_creds and sched_creds.get("api_key") and sched_creds.get("api_secret"):
                                         if STRANGLE_EXECUTION_LOCK.acquire(blocking=False):
@@ -1742,8 +1836,10 @@ def run_strategy_monitor_daemon():
                                                     lots=int(sched.get("lots", 50)),
                                                 )
                                                 sched["last_executed_date"] = current_date_str
+                                                sched["month_trade_count"] = trade_num
+                                                sched["trade_cycle"] = trade_num
                                                 save_strangle_scheduler(sched)
-                                                logger.info("✅ Automated Monthly Strangle deployed successfully! Group ID: %s", res.get("group", {}).get("id"))
+                                                logger.info("✅ Automated Monthly Strangle deployed successfully! Group ID: %s | Month Trades: %d/2", res.get("group", {}).get("id"), trade_num)
                                             finally:
                                                 STRANGLE_EXECUTION_LOCK.release()
                                         else:
@@ -1816,12 +1912,13 @@ def run_strategy_monitor_daemon():
                 except Exception:
                     pass
 
+                # Exact Delta Exchange Terminal Matching UPNL using official Mark Price
                 if is_long:
                     exit_price = best_bid if best_bid > 0 else mark_price
-                    upnl = (exit_price - entry_price) * asset_qty
+                    upnl = (mark_price - entry_price) * asset_qty
                 else:
                     exit_price = best_ask if best_ask > 0 else mark_price
-                    upnl = (entry_price - exit_price) * asset_qty
+                    upnl = (entry_price - mark_price) * asset_qty
 
                 item = {
                     "product_id": prod_id,
