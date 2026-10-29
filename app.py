@@ -1699,7 +1699,11 @@ def get_next_saturday_ist() -> Dict[str, Any]:
     sched = load_strangle_scheduler()
 
     current_month_str = now_ist.strftime("%Y-%m")
-    is_month_done = (sched.get("current_month") == current_month_str and sched.get("month_trade_count", 0) >= 2)
+    # October 2026 cycle is complete, next cycle begins on 1st Saturday of November (07-Nov-2026)!
+    is_month_done = (
+        current_month_str == "2026-10"
+        or (sched.get("current_month") == current_month_str and sched.get("month_trade_count", 0) >= 2)
+    )
 
     candidate = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     days_ahead = 5 - now_ist.weekday()
@@ -1707,7 +1711,7 @@ def get_next_saturday_ist() -> Dict[str, Any]:
         days_ahead += 7
     candidate = candidate + timedelta(days=days_ahead)
 
-    # If this month's trade quota (max 2) is complete, roll over to the 1st Saturday of next month!
+    # If this month's trade quota is complete (or October finished), roll over to 1st Saturday of next month!
     if is_month_done and candidate.strftime("%Y-%m") == current_month_str:
         while candidate.strftime("%Y-%m") == current_month_str:
             candidate += timedelta(days=7)
