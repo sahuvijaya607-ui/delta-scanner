@@ -677,12 +677,31 @@ def add_history_entry(state: Optional[Dict[str, Any]], entry: Dict[str, Any]) ->
     """Store order and strategy record in persistent disk history and session memory."""
     with HISTORY_LOCK:
         hist = load_persistent_history()
+        # Avoid duplicate consecutive entries
+        if hist:
+            latest = hist[0]
+            if (
+                latest.get("symbol") == entry.get("symbol")
+                and latest.get("status") == entry.get("status")
+                and latest.get("time") == entry.get("time")
+            ):
+                return
         hist.insert(0, entry)
+        if len(hist) > 300:
+            hist.pop()
         save_persistent_history(hist)
 
     if state is not None:
         with STATE_LOCK:
             sess_hist = state.setdefault("history", [])
+            if sess_hist:
+                latest = sess_hist[0]
+                if (
+                    latest.get("symbol") == entry.get("symbol")
+                    and latest.get("status") == entry.get("status")
+                    and latest.get("time") == entry.get("time")
+                ):
+                    return
             sess_hist.insert(0, entry)
             if len(sess_hist) > 150:
                 sess_hist.pop()
@@ -1200,6 +1219,47 @@ def api_history():
     return jsonify(history=combined)
 
 
+@app.post("/api/history")
+def api_history_post():
+    """Add a new order or strategy audit history entry with auth & schema validation."""
+    state = get_browser_state()
+    if not state.get("api_key") or not state.get("api_secret"):
+        return jsonify(error="API credentials required to record audit history."), 401
+
+    data = request.get_json(silent=True) or {}
+    entry = data.get("entry") or data
+    if not entry or not isinstance(entry, dict):
+        return jsonify(error="Invalid history entry format."), 400
+
+    symbol = str(entry.get("symbol", "")).strip()[:120]
+    status = str(entry.get("status", "")).strip()[:120]
+    side = str(entry.get("side", "")).strip()[:30]
+    if not symbol or not status:
+        return jsonify(error="History entry requires 'symbol' and 'status'."), 400
+
+    clean_entry = {
+        "symbol": symbol,
+        "status": status,
+        "side": side or "INFO",
+        "quantity": str(entry.get("quantity", "—"))[:50],
+        "price": str(entry.get("price", "—"))[:100],
+        "order_type": str(entry.get("order_type", "audit_log"))[:50],
+        "time": str(entry.get("time") or datetime.now().strftime("%d-%m %H:%M:%S"))[:30],
+    }
+    if "realized_profit" in entry and entry["realized_profit"] is not None:
+        try:
+            clean_entry["realized_profit"] = round(float(entry["realized_profit"]), 2)
+        except (ValueError, TypeError):
+            pass
+    if "entry_time" in entry:
+        clean_entry["entry_time"] = str(entry["entry_time"])[:30]
+    if "exit_time" in entry:
+        clean_entry["exit_time"] = str(entry["exit_time"])[:30]
+
+    add_history_entry(state, clean_entry)
+    return jsonify(ok=True, message="History entry recorded successfully.")
+
+
 @app.post("/api/orders")
 def api_orders():
     """Place live order with optional target and stop-loss brackets."""
@@ -1636,20 +1696,31 @@ def get_next_saturday_ist() -> Dict[str, Any]:
     now_utc = datetime.now(timezone.utc)
     ist_offset = timedelta(hours=5, minutes=30)
     now_ist = now_utc + ist_offset
-    # Weekday: Monday is 0, ..., Saturday is 5, Sunday is 6
+    sched = load_strangle_scheduler()
+
+    current_month_str = now_ist.strftime("%Y-%m")
+    is_month_done = (sched.get("current_month") == current_month_str and sched.get("month_trade_count", 0) >= 2)
+
+    candidate = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
     days_ahead = 5 - now_ist.weekday()
     if days_ahead < 0 or (days_ahead == 0 and (now_ist.hour > 0 or now_ist.minute > 20)):
         days_ahead += 7
-    next_sat = now_ist.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=days_ahead)
-    diff = next_sat - now_ist
+    candidate = candidate + timedelta(days=days_ahead)
+
+    # If this month's trade quota (max 2) is complete, roll over to the 1st Saturday of next month!
+    if is_month_done and candidate.strftime("%Y-%m") == current_month_str:
+        while candidate.strftime("%Y-%m") == current_month_str:
+            candidate += timedelta(days=7)
+
+    diff = candidate - now_ist
     total_seconds = max(0, int(diff.total_seconds()))
     days = total_seconds // 86400
     hours = (total_seconds % 86400) // 3600
     minutes = (total_seconds % 3600) // 60
     return {
         "current_ist": now_ist.strftime("%A, %d-%b-%Y %H:%M:%S IST"),
-        "datetime_ist": next_sat.strftime("%A, %d-%b-%Y @ 00:00:00 IST"),
-        "date_str": next_sat.strftime("%d-%b-%Y"),
+        "datetime_ist": candidate.strftime("%A, %d-%b-%Y @ 00:00:00 IST"),
+        "date_str": candidate.strftime("%d-%b-%Y"),
         "remaining_seconds": total_seconds,
         "remaining_human": f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m",
     }
@@ -1967,6 +2038,31 @@ def run_strategy_monitor_daemon():
                         combined_mtm += matched["unrealized_pnl"]
                         matched_count += 1
 
+                if matched_count == 0:
+                    # All positions for this group are already closed on Delta Exchange
+                    logger.info("All positions for strategy group '%s' are now closed on Delta Exchange. Archiving.", grp.get("name"))
+                    grp["status"] = "COMPLETED"
+                    grp["exit_reason"] = "All positions closed on Delta Exchange (Target Profit Booked)"
+                    dirty = True
+                    try:
+                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        tp_val = safe_float(grp.get("target", 19.82))
+                        dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
+                        add_history_entry(dummy_state, {
+                            "symbol": f"{grp.get('name')} ({leg_syms})",
+                            "side": "PROFIT EXIT",
+                            "quantity": f"{total_qty} Lots (0.10 BTC)",
+                            "price": f"+${tp_val:.2f}",
+                            "realized_profit": round(float(tp_val), 2),
+                            "order_type": "strategy_target_exit",
+                            "status": f"🎯 Target Profit Booked (+${tp_val:.2f} USD)",
+                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                        })
+                    except Exception as h_err:
+                        logger.debug("Auto-history archive error: %s", h_err)
+                    continue
+
                 grp["current_mtm"] = round(combined_mtm, 2)
                 grp["last_checked"] = datetime.now(timezone.utc).isoformat()
                 target = safe_float(grp.get("target"), 999999)
@@ -1980,7 +2076,7 @@ def run_strategy_monitor_daemon():
                     for leg in grp_legs:
                         try:
                             c_res = close_single_position(dummy_state, leg)
-                            if not c_res or not (c_res.get("ok") or c_res.get("success")):
+                            if not c_res or not (c_res.get("ok") or c_res.get("success") or c_res.get("result")):
                                 all_closed = False
                         except Exception as c_err:
                             logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
@@ -2014,7 +2110,7 @@ def run_strategy_monitor_daemon():
                     for leg in grp_legs:
                         try:
                             c_res = close_single_position(dummy_state, leg)
-                            if not c_res or not (c_res.get("ok") or c_res.get("success")):
+                            if not c_res or not (c_res.get("ok") or c_res.get("success") or c_res.get("result")):
                                 all_closed = False
                         except Exception as c_err:
                             logger.error("Auto-close leg %s error: %s", leg.get("symbol"), c_err)
@@ -2027,14 +2123,24 @@ def run_strategy_monitor_daemon():
                         # Archive to persistent history
                         leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
                         total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        entry_time = grp.get("created_at") or grp.get("entry_time") or datetime.now().strftime("%d-%m %H:%M:%S")
+                        exit_time = datetime.now().strftime("%d-%m %H:%M:%S")
+                        entry_prices = [f"${safe_float(l.get('entry_price', 0)):.2f}" for l in grp_legs if l.get("entry_price")]
+                        price_summary = f"-${abs(combined_mtm):.2f}"
+                        if entry_prices:
+                            price_summary += f" (Entry: {' / '.join(entry_prices)})"
+
                         add_history_entry(dummy_state, {
                             "symbol": f"{grp.get('name')} ({leg_syms})",
                             "side": "SL EXIT",
                             "quantity": f"{total_qty} Lots",
-                            "price": f"-${abs(combined_mtm):.2f}",
+                            "price": price_summary,
+                            "entry_time": entry_time,
+                            "exit_time": exit_time,
+                            "realized_profit": -round(float(abs(combined_mtm)), 2),
                             "order_type": "strategy_sl_exit",
                             "status": f"🛑 Stop-Loss Closed (-${abs(combined_mtm):.2f} USD)",
-                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                            "time": exit_time,
                         })
                     else:
                         logger.warning("Stop-Loss hit for %s but one or more legs failed to close. Keeping in MONITORING to retry immediately.", grp.get("name"))
@@ -2049,7 +2155,7 @@ def run_strategy_monitor_daemon():
                     if gid in status_map:
                         lg["current_mtm"] = status_map[gid].get("current_mtm", lg.get("current_mtm"))
                         lg["last_checked"] = status_map[gid].get("last_checked", lg.get("last_checked"))
-                        if status_map[gid].get("status") in ("TARGET_HIT", "SL_HIT"):
+                        if status_map[gid].get("status") in ("TARGET_HIT", "SL_HIT", "COMPLETED"):
                             lg["status"] = status_map[gid]["status"]
                             lg["exit_reason"] = status_map[gid].get("exit_reason")
                     updated_groups.append(lg)

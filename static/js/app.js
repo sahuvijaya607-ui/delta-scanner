@@ -23,6 +23,7 @@
 
     // Multi-leg Strategy Groups state
     currentPositions: [],
+    positionsLoaded: false,
     selectedPositionKeys: new Set(),
     strategyGroups: [],
 
@@ -1068,6 +1069,7 @@
 
     try {
       const data = await apiFetch('/api/positions');
+      state.positionsLoaded = true;
       if (!data.connected) {
         state.isConnected = false;
         dom.positionsBody.innerHTML = `
@@ -1561,9 +1563,34 @@
         return;
       }
 
-      // 2. If server has NO active groups, check if we have local active groups with open positions to auto-restore
-      const localActive = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING');
+      // 2. If server has NO active groups, verify if local groups ACTUALLY have open positions on Delta Exchange
+      const isLegOpen = (g) => {
+        if (!state.currentPositions || !state.currentPositions.length) return false;
+        return (g.positions || []).some((leg) =>
+          state.currentPositions.some(
+            (p) => Number(p.product_id) === Number(leg.product_id) || String(p.symbol) === String(leg.symbol)
+          )
+        );
+      };
+
+      let localActive = (state.strategyGroups || []).filter((g) => g.status === 'MONITORING' && isLegOpen(g));
+      if (localActive.length === 0) {
+        try {
+          const raw = localStorage.getItem('delta_strategy_groups');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              localActive = parsed.filter((g) => g.status === 'MONITORING' && isLegOpen(g));
+              if (localActive.length > 0) {
+                state.strategyGroups = parsed;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
       if (localActive.length > 0) {
+        // Auto-restore active groups to server ONLY if positions are genuinely open on Delta
         for (const grp of localActive) {
           try {
             await apiFetch('/api/strategy-groups', {
@@ -1572,8 +1599,10 @@
             });
           } catch (_) {}
         }
+        renderStrategyGroups();
         return;
       }
+
       state.strategyGroups = [];
       try {
         localStorage.setItem('delta_strategy_groups', JSON.stringify([]));
@@ -1733,26 +1762,27 @@
       // Skip triggering if not in active MONITORING state
       if (group.status !== 'MONITORING') continue;
 
-      // If none of the legs are currently matched in open positions (e.g. pending limit orders awaiting fill)
+      // If positions are loaded and none of the legs are open on Delta Exchange, trade is COMPLETED!
       if (matchedCount === 0) {
+        if (state.isConnected && state.positionsLoaded && Array.isArray(state.currentPositions)) {
+          // Positions are verified closed on Delta Exchange. Clean up ghost card & transition to next schedule!
+          group.status = 'COMPLETED';
+          state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+          saveGroupsToStorage();
+          renderStrategyGroups();
+          try {
+            apiFetch(`/api/strategy-groups/${group.id}`, { method: 'DELETE' });
+          } catch (_) {}
+          fetchStranglePreview();
+          refreshHistory();
+        }
         continue;
       }
 
       // 1. Check Combined Target Profit Trigger
       if (combinedMtm >= group.target) {
-        group.status = 'TARGET_HIT';
-        state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
-        saveGroupsToStorage();
-        renderStrategyGroups();
-        playSound('order');
-        showToast(
-          `🎯 TARGET REACHED! ${group.name} hit combined target of +$${group.target.toFixed(2)} (Actual: +$${combinedMtm.toFixed(2)}). Profit booked & archived to History!`,
-          'success',
-          7000
-        );
-
         try {
-          await apiFetch('/api/positions/close', {
+          const res = await apiFetch('/api/positions/close', {
             method: 'POST',
             body: JSON.stringify({
               positions: group.positions,
@@ -1760,28 +1790,32 @@
               reason: `Combined Target Hit (+$${combinedMtm.toFixed(2)})`,
             }),
           });
-          await syncStrategyGroups();
-          await refreshPositions();
-          await refreshHistory();
+          if (res && (res.success || res.ok)) {
+            group.status = 'TARGET_HIT';
+            state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+            saveGroupsToStorage();
+            renderStrategyGroups();
+            playSound('order');
+            showToast(
+              `🎯 TARGET REACHED! ${group.name} hit combined target of +$${group.target.toFixed(2)} (Actual: +$${combinedMtm.toFixed(2)}). Profit booked & archived to History!`,
+              'success',
+              7000
+            );
+            await syncStrategyGroups();
+            await refreshPositions();
+            await refreshHistory();
+          } else {
+            showToast(`Target auto-close in progress for ${group.name}...`, 'info', 4000);
+          }
         } catch (err) {
-          showToast(`Target auto-close failed: ${err.message}`, 'error', 6000);
+          showToast(`Target close retry for ${group.name}: ${err.message}`, 'warning', 5000);
+          // Keep group alive in MONITORING state so card never disappears!
         }
       }
       // 2. Check Combined Stop-Loss Trigger
       else if (combinedMtm <= -Math.abs(group.stopLoss)) {
-        group.status = 'SL_HIT';
-        state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
-        saveGroupsToStorage();
-        renderStrategyGroups();
-        playSound('exit');
-        showToast(
-          `🛑 STOP-LOSS HIT! ${group.name} hit combined stop-loss of -$${group.stopLoss.toFixed(2)} (Actual: -$${Math.abs(combinedMtm).toFixed(2)}). Position closed & archived to History!`,
-          'error',
-          7000
-        );
-
         try {
-          await apiFetch('/api/positions/close', {
+          const res = await apiFetch('/api/positions/close', {
             method: 'POST',
             body: JSON.stringify({
               positions: group.positions,
@@ -1789,11 +1823,26 @@
               reason: `Combined Stop-Loss Hit (-$${Math.abs(combinedMtm).toFixed(2)})`,
             }),
           });
-          await syncStrategyGroups();
-          await refreshPositions();
-          await refreshHistory();
+          if (res && (res.success || res.ok)) {
+            group.status = 'SL_HIT';
+            state.strategyGroups = state.strategyGroups.filter((g) => g.id !== group.id);
+            saveGroupsToStorage();
+            renderStrategyGroups();
+            playSound('exit');
+            showToast(
+              `🛑 STOP-LOSS HIT! ${group.name} hit combined stop-loss of -$${group.stopLoss.toFixed(2)} (Actual: -$${Math.abs(combinedMtm).toFixed(2)}). Position closed & archived to History!`,
+              'error',
+              7000
+            );
+            await syncStrategyGroups();
+            await refreshPositions();
+            await refreshHistory();
+          } else {
+            showToast(`Stop-loss auto-close in progress for ${group.name}...`, 'info', 4000);
+          }
         } catch (err) {
-          showToast(`Stop-loss auto-close failed: ${err.message}`, 'error', 6000);
+          showToast(`Stop-loss close retry for ${group.name}: ${err.message}`, 'warning', 5000);
+          // Keep group alive in MONITORING state so card never disappears!
         }
       }
     }
@@ -1838,7 +1887,9 @@
     try {
       await apiFetch(`/api/strategy-groups/${groupId}`, { method: 'DELETE' });
     } catch (_) {}
-    showToast('Strategy Group removed.', 'info', 2000);
+    showToast('Strategy Group removed. Updating next entry schedule...', 'info', 2500);
+    fetchStranglePreview();
+    refreshHistory();
   }
 
   // --- Monthly Safe OTM Strangle Strategy Module ---
@@ -2365,20 +2416,25 @@
         return;
       }
 
-      // Calculate Total Lifetime Booked Profit from history records
+      // Calculate Total Lifetime Booked Profit from history records (deduplicated against leg closes)
       let totalProfitBooked = 0;
       history.forEach((item) => {
-        if (item.realized_profit != null && Number.isFinite(Number(item.realized_profit))) {
-          totalProfitBooked += Number(item.realized_profit);
-        } else {
-          const side = String(item.side || '').toUpperCase();
-          const status = String(item.status || '');
-          const orderType = String(item.order_type || '');
-          if (side.includes('PROFIT') || orderType.includes('target') || status.includes('Target Profit Booked')) {
-            const match = (status + ' ' + (item.price || '')).match(/\+\$?([\d.]+)/);
-            if (match && match[1]) {
-              totalProfitBooked += parseFloat(match[1]);
+        const orderType = String(item.order_type || '');
+        // Consolidated strategy exits carry the authoritative net profit
+        if (orderType === 'strategy_target_exit' || orderType === 'strategy_sl_exit') {
+          if (item.realized_profit != null && Number.isFinite(Number(item.realized_profit))) {
+            totalProfitBooked += Number(item.realized_profit);
+          } else {
+            const match = String(item.status || item.price || '').match(/([+-]?\$?([\d.]+))/);
+            if (match && match[2]) {
+              const sign = match[1].startsWith('-') ? -1 : 1;
+              totalProfitBooked += sign * parseFloat(match[2]);
             }
+          }
+        } else if (orderType !== 'market_close') {
+          // Non-leg standalone trades (if any)
+          if (item.realized_profit != null && Number.isFinite(Number(item.realized_profit))) {
+            totalProfitBooked += Number(item.realized_profit);
           }
         }
       });
@@ -2412,13 +2468,23 @@
             sideStyle = 'color:#fbbf24; font-weight:700;';
           }
 
+          const timeDisplay = `
+            <div>${escapeHtml(item.time || item.exit_time || '—')}</div>
+            ${item.entry_time && item.entry_time !== item.time ? `<div style="font-size:10px; color:#94a3b8;">Entry: ${escapeHtml(item.entry_time)}</div>` : ''}
+          `;
+
+          const statusDisplay = `
+            <span class="status-tag ${statusTag}">${escapeHtml(item.status)}</span>
+            ${item.price && item.price !== 'MARKET' ? `<div style="font-size:10px; color:#cbd5e1; margin-top:2px;" class="font-mono">${escapeHtml(item.price)}</div>` : ''}
+          `;
+
           return `
             <tr>
-              <td>${escapeHtml(item.time)}</td>
+              <td>${timeDisplay}</td>
               <td><strong>${escapeHtml(item.symbol)}</strong></td>
               <td style="${sideStyle}">${escapeHtml(side)}</td>
               <td>${escapeHtml(item.quantity)}</td>
-              <td><span class="status-tag ${statusTag}">${escapeHtml(item.status)}</span></td>
+              <td>${statusDisplay}</td>
             </tr>
           `;
         })
@@ -2786,7 +2852,7 @@
       dom.editGroupModalSaveBtn.addEventListener('click', saveEditedStrategyGroup);
     }
 
-    // Monthly Strangle Strategy Module Listeners
+    // Monthly Strangle Strategy Module Listeners - Instant User Control
     if (dom.strangleLotsInput) {
       dom.strangleLotsInput.addEventListener('input', () => {
         const val = parseInt(dom.strangleLotsInput.value, 10) || 0;
@@ -2796,8 +2862,13 @@
         updateMarginCushionGuard();
         fetchStranglePreview();
       });
+      // Auto-save when user finishes typing a custom lot size
+      dom.strangleLotsInput.addEventListener('change', () => {
+        saveDefaultLots();
+      });
     }
 
+    // 1-Click Quick Lot Selection with Instant Auto-Save
     document.querySelectorAll('.btn-quick-lot').forEach((btn) => {
       btn.addEventListener('click', () => {
         const lotVal = btn.dataset.lot;
@@ -2807,6 +2878,7 @@
         document.querySelectorAll('.btn-quick-lot').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         updateMarginCushionGuard();
+        saveDefaultLots(); // Instantly persist to disk and scheduler!
         fetchStranglePreview();
       });
     });
@@ -2906,6 +2978,22 @@
       }
     } catch (_) {}
 
+    // 1. Immediately load saved strategy groups from localStorage so state is NEVER empty on refresh
+    try {
+      const savedGroups = localStorage.getItem('delta_strategy_groups');
+      if (savedGroups) {
+        const parsed = JSON.parse(savedGroups);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          state.strategyGroups = parsed;
+          renderStrategyGroups();
+        }
+      }
+    } catch (_) {}
+
+    // 2. Auto-restore saved credentials FIRST so server has authenticated session
+    await restoreSavedConnection();
+
+    // 3. Now sync strategy groups with server
     await syncStrategyGroups();
 
     initEvents();
@@ -2931,9 +3019,6 @@
         }
       }
     } catch (_) {}
-
-    // Auto-restore saved connection if present (survives browser refresh!)
-    await restoreSavedConnection();
 
     // Auto-start live 1-second streaming scanner on load
     startScanner(true);
