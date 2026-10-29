@@ -183,6 +183,8 @@
     strangleResetTpSlBtn: el('strangleResetTpSlBtn'),
     strangleHardSlVal: el('strangleHardSlVal'),
     strangleActiveAlert: el('strangleActiveAlert'),
+    strangleNextDateTime: el('strangleNextDateTime'),
+    strangleNextCountdown: el('strangleNextCountdown'),
     strangleDeployBtn: el('strangleDeployBtn'),
     strangleRefreshBtn: el('strangleRefreshBtn'),
     sellingMasterToggleBtn: el('sellingMasterToggleBtn'),
@@ -1995,6 +1997,17 @@
     }
 
     // Scheduler Toggle State Sync
+    // Always update permanent Next Strangle Schedule bar
+    const nextEntryObj = data.next_entry || {};
+    const permanentNextDate = nextEntryObj.datetime_ist || 'Saturday, 07-Nov-2026 @ 00:00:00 IST';
+    const permanentNextRemaining = nextEntryObj.remaining_human ? `⏳ ${nextEntryObj.remaining_human} remaining` : '⏰ Next Saturday Window';
+    if (dom.strangleNextDateTime) {
+      dom.strangleNextDateTime.textContent = permanentNextDate;
+    }
+    if (dom.strangleNextCountdown) {
+      dom.strangleNextCountdown.textContent = permanentNextRemaining;
+    }
+
     const isSched = data.scheduler ? !!data.scheduler.enabled : !!data.scheduler_enabled;
     if (dom.strangleSchedulerToggle && dom.strangleSchedulerToggle.checked !== isSched) {
       dom.strangleSchedulerToggle.checked = isSched;
@@ -2244,16 +2257,24 @@
         dom.trackerCountdown.textContent = `MTM: ${formattedMtm} | Target: ${tpVal} | Dynamic SL: ${slVal} | Hard Cap: -$${hardCapVal}`;
       }
       if (dom.trackerDetailIcon) dom.trackerDetailIcon.textContent = '🛡️';
+      const nextTimeStr = (nextEntry && nextEntry.datetime_ist) ? nextEntry.datetime_ist : 'Saturday, 07-Nov-2026 @ 00:00:00 IST';
+      const remainingStr = (nextEntry && nextEntry.remaining_human) ? `⏳ ${nextEntry.remaining_human} remaining` : '⏰ Next Window';
+
       if (dom.trackerDetailText) {
-        dom.trackerDetailText.innerHTML = `<strong>GOLDEN RULE ACTIVE:</strong> Trade chal raha hai aur 24/7 monitor ho raha hai. Target Profit: <strong>${tpVal}</strong> | Dynamic SL: <strong>${slVal}</strong> | Hard SL Cap: <strong>-$${hardCapVal}</strong> ($1.50/lot max ceiling). Agli nayi entry tabhi hogi jab ye trade exit na ho jaye.`;
+        dom.trackerDetailText.innerHTML = `
+          <strong>GOLDEN RULE ACTIVE:</strong> Trade chal raha hai aur 24/7 monitor ho raha hai. Target: <strong>${tpVal}</strong> | Dynamic SL: <strong>${slVal}</strong> | Hard Cap: <strong>-$${hardCapVal}</strong>.<br>
+          <div style="margin-top: 8px; padding: 6px 12px; background: rgba(56, 189, 248, 0.12); border-left: 3px solid #38bdf8; border-radius: 4px; font-size: 12px;">
+            📅 <strong>AGLI AUTOMATED ENTRY DATE:</strong> <span style="color: #38bdf8; font-weight: 700;">${nextTimeStr}</span> (${remainingStr}) — <em>yeh trade exit hone ke baad unlock hogi.</em>
+          </div>
+        `;
       }
 
       if (dom.sellingStatusBanner) {
         dom.sellingStatusBanner.className = 'selling-status-banner banner-selling-on';
       }
       if (dom.sellingBannerIcon) dom.sellingBannerIcon.textContent = '🟢';
-      if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = '🟢 STRANGLE TRADE ACTIVE & MONITORING:';
-      if (dom.sellingBannerDesc) dom.sellingBannerDesc.textContent = `Active trade '${grpName}' chal raha hai (Live MTM: ${formattedMtm}). Zero-Overlap rule active hai; agli new entry exit ke baad unlock hogi.`;
+      if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = '🟢 STRANGLE ACTIVE · AGLI ENTRY: 07-NOV @ 00:00 IST:';
+      if (dom.sellingBannerDesc) dom.sellingBannerDesc.textContent = `Active trade '${grpName}' chal raha hai (Live MTM: ${formattedMtm}). Agli automated entry: ${nextTimeStr} (${remainingStr}). Current trade exit par automatically trigger hogi.`;
       return;
     }
 
@@ -3026,6 +3047,10 @@
     // Monthly Strangle initial preview & periodic 10s refresh
     fetchStranglePreview();
     setInterval(fetchStranglePreview, 10000);
+
+    // Auto-refresh Audit History & Lifetime Booked Profit every 10 seconds
+    refreshHistory();
+    setInterval(refreshHistory, 10000);
   }
 
   // Run on DOM ready
