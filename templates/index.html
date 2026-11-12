@@ -596,7 +596,136 @@
   <script src="/static/js/app.js"></script>
 
 <!-- Group Creation Modal -->
-<div id="groupModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+<div id="groupModal" style="display: none;" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-surface-container-lowest border border-border-subtle w-full max-w-lg p-space-lg shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-telemetry-cyan">group_add</span>
+        <h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">CREATE COMBINED STRATEGY GROUP</h3>
+      </div>
+      <button id="groupModalCloseBtn" type="button" class="text-on-surface-variant hover:text-on-surface text-2xl font-bold cursor-pointer">&times;</button>
+    </div>
+    
+    <div class="space-y-space-md">
+      <div>
+        <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">STRATEGY / GROUP NAME</label>
+        <input type="text" id="groupNameInput" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-on-surface font-body-sm focus:border-telemetry-cyan outline-none" placeholder="e.g. BTC Strangle Pair #1">
+      </div>
+
+      <div class="bg-surface-container p-space-sm border border-border-subtle">
+        <div class="font-label-code text-label-code text-on-surface-variant uppercase mb-1">INCLUDED LEGS:</div>
+        <div id="selectedLegsList" class="space-y-1 text-data-md font-data-md text-on-surface max-h-32 overflow-y-auto">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="mt-space-sm pt-space-xs border-t border-border-subtle flex justify-between font-label-code text-label-code">
+          <span class="text-on-surface-variant uppercase">COMBINED UNREALIZED MTM:</span>
+          <span id="groupCurrentMtm" class="text-execution-emerald font-bold">$0.00 USD</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-space-md">
+        <div>
+          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED TARGET ($)</label>
+          <input type="number" id="groupTargetInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-execution-emerald font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 15.00">
+          <span class="text-[10px] text-on-surface-variant font-label-code">Auto-exits all legs when profit hits this $</span>
+        </div>
+        <div>
+          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED STOP LOSS ($)</label>
+          <input type="number" id="groupStopLossInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-critical-crimson font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 30.00">
+          <span class="text-[10px] text-on-surface-variant font-label-code">Auto-exits all legs when loss hits this $</span>
+        </div>
+      </div>
+
+      <div class="p-space-xs bg-telemetry-cyan/10 border border-telemetry-cyan/30 text-[11px] font-label-code text-telemetry-cyan">
+        ⚡ <strong>Automated 1-Second Monitor:</strong> The 24/7 background daemon monitors total net PnL every second. As soon as Combined Target or Stop Loss is touched, it automatically sends market-close orders for all legs!
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-space-sm border-t border-border-subtle pt-space-md mt-space-md">
+      <button id="groupModalCancelBtn" type="button" class="px-space-md py-2 bg-surface-container text-on-surface-variant font-label-code text-label-code uppercase hover:text-on-surface cursor-pointer">CANCEL</button>
+      <button id="groupModalSaveBtn" type="button" class="px-space-md py-2 bg-execution-emerald text-surface-container-lowest font-label-code text-label-code font-bold uppercase hover:bg-execution-emerald/90 cursor-pointer">ACTIVATE COMBINED GROUP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Strategy Group Modal -->
+<div id="editGroupModal" style="display: none;" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm items-center justify-center p-4">
+  <div class="bg-surface-container-lowest border-2 border-terminal-amber w-full max-w-lg p-space-lg shadow-2xl relative">
+    <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-terminal-amber text-[24px]">tune</span>
+        <h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight font-bold">
+          UPDATE STRATEGY TARGET &amp; STOP-LOSS
+        </h3>
+      </div>
+      <button id="editGroupModalCloseBtn" type="button" class="text-on-surface-variant hover:text-critical-crimson text-2xl font-bold cursor-pointer p-1">&times;</button>
+    </div>
+
+    <div class="space-y-space-md">
+      <input type="hidden" id="editGroupIdInput">
+      <div>
+        <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">STRATEGY NAME</label>
+        <input type="text" id="editGroupNameInput" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-on-surface font-body-sm outline-none" placeholder="BTC Monthly Strangle">
+      </div>
+
+      <!-- Target and Soft SL -->
+      <div class="grid grid-cols-2 gap-space-md">
+        <div class="bg-surface-container p-space-sm border border-execution-emerald/40">
+          <label class="block font-label-code text-label-code text-execution-emerald uppercase font-bold mb-1 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">stars</span> TARGET PROFIT ($)
+          </label>
+          <input type="number" id="editGroupTargetInput" step="any" min="0.1" class="w-full bg-surface-container-lowest border border-execution-emerald/60 px-space-sm py-2 text-execution-emerald font-data-md font-bold focus:border-execution-emerald outline-none" placeholder="e.g. 15.00">
+          <span class="text-[10px] text-on-surface-variant font-label-code block mt-1">Auto-exits all legs when profit reaches this $</span>
+        </div>
+        <div class="bg-surface-container p-space-sm border border-critical-crimson/40">
+          <label class="block font-label-code text-label-code text-critical-crimson uppercase font-bold mb-1 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">dangerous</span> COMBINED SOFT SL ($)
+          </label>
+          <input type="number" id="editGroupStopLossInput" step="any" min="0.1" class="w-full bg-surface-container-lowest border border-critical-crimson/60 px-space-sm py-2 text-critical-crimson font-data-md font-bold focus:border-critical-crimson outline-none" placeholder="e.g. 30.00">
+          <span class="text-[10px] text-on-surface-variant font-label-code block mt-1">Auto-exits all legs when loss reaches this $</span>
+        </div>
+      </div>
+
+      <!-- Native Hard Stop Prices -->
+      <div class="p-space-sm bg-surface-container border border-terminal-amber/30">
+        <div class="font-label-code text-label-code text-terminal-amber uppercase font-bold mb-2 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[15px]">security</span> DELTA NATIVE EXCHANGE BRACKET STOPS (PER-LEG)
+        </div>
+        <div class="grid grid-cols-2 gap-space-md">
+          <div>
+            <label class="block text-[11px] font-label-code text-on-surface-variant uppercase mb-1">CALL SL TRIGGER PX ($)</label>
+            <input type="number" id="editGroupCallSlInput" step="any" min="1" class="w-full bg-surface-container-lowest border border-border-subtle px-space-sm py-1.5 text-terminal-amber font-data-md font-bold focus:border-terminal-amber outline-none" placeholder="1008.0">
+            <span class="text-[9px] text-on-surface-variant font-label-code">Order on C-BTC-92000</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-label-code text-on-surface-variant uppercase mb-1">PUT SL TRIGGER PX ($)</label>
+            <input type="number" id="editGroupPutSlInput" step="any" min="1" class="w-full bg-surface-container-lowest border border-border-subtle px-space-sm py-1.5 text-terminal-amber font-data-md font-bold focus:border-terminal-amber outline-none" placeholder="2042.0">
+            <span class="text-[9px] text-on-surface-variant font-label-code">Order on P-BTC-66000</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-space-xs bg-terminal-amber/10 border border-terminal-amber/30 text-[11px] font-label-code text-terminal-amber flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-[16px]">bolt</span>
+        <span><strong>Instant Cloud Sync:</strong> Saving these thresholds immediately updates the 24/7 background monitor daemon on Render Cloud!</span>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-space-sm border-t border-border-subtle pt-space-md mt-space-md">
+      <button id="editGroupModalCancelBtn" type="button" class="px-space-md py-2 bg-surface-container text-on-surface-variant font-label-code text-label-code uppercase hover:text-on-surface cursor-pointer">CANCEL</button>
+      <button id="editGroupModalSaveBtn" type="button" class="px-space-lg py-2 bg-terminal-amber text-surface-container-lowest font-label-code text-label-code font-bold uppercase hover:bg-terminal-amber/90 transition-colors cursor-pointer flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">save</span>
+        <span>SAVE THRESHOLDS</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+  <!-- Core Real-Time Application JavaScript -->
+  <script src="/static/js/app.js"></script>
+
+<!-- Group Creation Modal -->
+<div id="groupModal" style="display: none;" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm items-center justify-center p-4">
   <div class="bg-surface-container-lowest border border-border-subtle w-full max-w-lg p-space-lg shadow-2xl relative">
     <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
       <div class="flex items-center gap-2">
