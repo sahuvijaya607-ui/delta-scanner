@@ -165,35 +165,13 @@ def ensure_static_assets():
     root_js = os.path.join(base, "js", "app.js")
 
     if os.path.isfile(root_js) and os.path.isfile(target_js):
-
         try:
-
-            with open(root_js, "r", encoding="utf-8", errors="ignore") as f1, open(target_js, "r", encoding="utf-8", errors="ignore") as f2:
-
-                r_text = f1.read()
-
-                t_text = f2.read()
-
             import shutil
-
-            if "updateStrangleExecutionTracker" in r_text and "updateStrangleExecutionTracker" not in t_text:
-
-                shutil.copy2(root_js, target_js)
-
-            elif "updateStrangleExecutionTracker" in t_text and "updateStrangleExecutionTracker" not in r_text:
-
+            if os.path.getmtime(target_js) >= os.path.getmtime(root_js):
                 shutil.copy2(target_js, root_js)
-
-            elif os.path.getmtime(root_js) > os.path.getmtime(target_js):
-
-                shutil.copy2(root_js, target_js)
-
             else:
-
-                shutil.copy2(target_js, root_js)
-
+                shutil.copy2(root_js, target_js)
         except Exception:
-
             pass
 
     elif os.path.isfile(root_js) and not os.path.isfile(target_js):
@@ -4886,6 +4864,20 @@ def api_strangle_scheduler():
 
 
 @app.post("/api/strategy/monthly-strangle/set-native-sl")
+@app.get("/api/orders/pending")
+def api_orders_pending():
+    """Fetch live pending conditional stop orders from Delta Exchange."""
+    state = get_browser_state()
+    if not state["api_key"] or not state["api_secret"]:
+        return jsonify(connected=False, orders=[])
+    try:
+        client = DeltaRESTClient(state["environment"], state["api_key"], state["api_secret"])
+        orders = client.authenticated_request("GET", "/v2/orders", params={"state": "pending"})
+        return jsonify(connected=True, orders=orders if isinstance(orders, list) else [])
+    except Exception as exc:
+        return jsonify(connected=False, orders=[], error=str(exc))
+
+
 def api_set_native_sl():
     """Manually trigger or verify native bracket SL injection on Delta Exchange for active strangle positions."""
     state = get_browser_state()
