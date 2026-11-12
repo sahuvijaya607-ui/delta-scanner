@@ -84,17 +84,23 @@
   async function refreshTelemetry() {
     try {
       const t0 = performance.now();
-      const [posRes, grpRes, schedRes, walletRes, stopsRes, histRes] = await Promise.allSettled([
+      const [posRes, grpRes, schedRes, walletRes, stopsRes, histRes, spotRes] = await Promise.allSettled([
         fetch('/api/positions').then(r => r.json()),
         fetch('/api/strategy-groups').then(r => r.json()),
         fetch('/api/strategy/monthly-strangle/scheduler').then(r => r.json()),
         fetch('/api/wallet').then(r => r.json()),
         fetch('/api/orders/pending').then(r => r.json()),
         fetch('/api/history').then(r => r.json()),
+        fetch('/api/spot').then(r => r.json()),
       ]);
 
       const roundTrip = Math.round(performance.now() - t0);
       if (dom.statDaemonLag) dom.statDaemonLag.textContent = `(${roundTrip}ms)`;
+
+      // Spot Price Update
+      if (spotRes.status === 'fulfilled' && spotRes.value && spotRes.value.spot) {
+        state.spotPrice = parseFloat(spotRes.value.spot);
+      }
 
       // A. Wallet Data
       if (walletRes.status === 'fulfilled' && walletRes.value) {
@@ -110,18 +116,18 @@
         if (dom.statBlocked) dom.statBlocked.textContent = `$${fmt(state.wallet.blocked)}`;
       }
 
-      // B. Strategy Groups & Live MTM
-      if (grpRes.status === 'fulfilled' && grpRes.value) {
-        const groups = grpRes.value.groups || [];
-        state.groups = groups;
-        renderStrategyHero(groups);
-      }
-
-      // C. Positions
+      // B. Positions
       if (posRes.status === 'fulfilled' && posRes.value) {
         const pData = posRes.value;
         state.positions = pData.positions || [];
         renderPositionsTable(state.positions);
+      }
+
+      // C. Strategy Groups & Live MTM
+      if (grpRes.status === 'fulfilled' && grpRes.value) {
+        const groups = grpRes.value.groups || [];
+        state.groups = groups;
+        renderStrategyHero(groups);
       }
 
       // D. Pending Stop Orders on Delta
@@ -150,7 +156,34 @@
 
   // 2. Render Hero Strategy & Volatility Corridor Gauge
   function renderStrategyHero(groups) {
-    const activeGroup = groups.find(g => g.status === 'MONITORING' && g.strategy_type === 'MONTHLY_STRANGLE') || groups[0];
+    let activeGroup = groups.find(g => g.status === 'MONITORING' && g.strategy_type === 'MONTHLY_STRANGLE') || groups[0];
+
+    // Fallback sync: If server group list is empty but positions exist on Delta, auto-render from live positions!
+    if (!activeGroup && state.positions && state.positions.length >= 2) {
+      const call = state.positions.find(p => (p.symbol || '').startsWith('C-'));
+      const put = state.positions.find(p => (p.symbol || '').startsWith('P-'));
+      if (call && put) {
+        const cEntry = parseFloat(call.entry_price || 0);
+        const pEntry = parseFloat(put.entry_price || 0);
+        const lots = Math.abs(parseInt(call.size || 100));
+        const totalCredit = (cEntry + pEntry) * (lots * 0.001);
+        const target = totalCredit * 0.20;
+        const cUpnl = parseFloat(call.unrealized_pnl || 0);
+        const pUpnl = parseFloat(put.unrealized_pnl || 0);
+        activeGroup = {
+          id: 'live_synced_strangle',
+          name: `BTC Monthly Strangle (${lots} Lots)`,
+          strategy_type: 'MONTHLY_STRANGLE',
+          positions: [call, put],
+          target: target,
+          stopLoss: target * 2.0,
+          pnl: (cUpnl + pUpnl),
+          native_sl_call: cEntry * 2.0,
+          native_sl_put: pEntry * 2.0
+        };
+      }
+    }
+
     if (!activeGroup) return;
 
     const positions = activeGroup.positions || [];
@@ -160,11 +193,8 @@
     const callStrike = extractStrike(callLeg.symbol) || 92000;
     const putStrike = extractStrike(putLeg.symbol) || 66000;
 
-    // Spot Price Estimation
-    let spot = state.spotPrice;
-    if (callLeg.entry_price && putLeg.entry_price) {
-      spot = 75800.0; // default anchor if not streaming
-    }
+    // Real-Time Spot Price from Delta Exchange
+    const spot = state.spotPrice > 1000 ? state.spotPrice : 72307.7;
 
     // A. Update Corridor Markers
     if (dom.gaugePutStrike) dom.gaugePutStrike.textContent = `$${fmt(putStrike, 0)}`;
