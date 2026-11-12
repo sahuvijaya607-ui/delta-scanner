@@ -22,6 +22,7 @@
     totalCost: 0.0,
     lastPing: Date.now(),
     isSyncing: false,
+    selectedPositionKeys: new Set(),
   };
 
   // DOM Elements Cache
@@ -86,6 +87,35 @@
     positionsTbody: document.getElementById('positions-tbody'),
     stopsTbody: document.getElementById('stops-tbody'),
     auditTbody: document.getElementById('audit-tbody'),
+
+    // Grouping & Batch Actions
+    selectAllPositions: document.getElementById('selectAllPositions'),
+    batchActionBar: document.getElementById('batchActionBar'),
+    batchCount: document.getElementById('batchCount'),
+    batchPnl: document.getElementById('batchPnl'),
+    openGroupModalBtn: document.getElementById('openGroupModalBtn'),
+
+    // Group Creation Modal
+    groupModal: document.getElementById('groupModal'),
+    groupModalCloseBtn: document.getElementById('groupModalCloseBtn'),
+    groupModalCancelBtn: document.getElementById('groupModalCancelBtn'),
+    groupModalSaveBtn: document.getElementById('groupModalSaveBtn'),
+    groupNameInput: document.getElementById('groupNameInput'),
+    selectedLegsList: document.getElementById('selectedLegsList'),
+    groupCurrentMtm: document.getElementById('groupCurrentMtm'),
+    groupTargetInput: document.getElementById('groupTargetInput'),
+    groupStopLossInput: document.getElementById('groupStopLossInput'),
+
+    // Edit Strategy Group Modal & Trigger
+    btnEditActiveGroup: document.getElementById('btn-edit-active-group'),
+    editGroupModal: document.getElementById('editGroupModal'),
+    editGroupModalCloseBtn: document.getElementById('editGroupModalCloseBtn'),
+    editGroupModalCancelBtn: document.getElementById('editGroupModalCancelBtn'),
+    editGroupModalSaveBtn: document.getElementById('editGroupModalSaveBtn'),
+    editGroupIdInput: document.getElementById('editGroupIdInput'),
+    editGroupNameInput: document.getElementById('editGroupNameInput'),
+    editGroupTargetInput: document.getElementById('editGroupTargetInput'),
+    editGroupStopLossInput: document.getElementById('editGroupStopLossInput'),
   };
 
   // Safe Number Formatter
@@ -343,12 +373,15 @@
   function renderPositionsTable(positions) {
     if (!dom.positionsTbody) return;
     if (!positions || positions.length === 0) {
-      dom.positionsTbody.innerHTML = `<tr><td colspan="8" class="py-space-md text-center text-on-surface-variant font-label-code">NO OPEN STRANGLE POSITIONS ON DELTA</td></tr>`;
+      dom.positionsTbody.innerHTML = `<tr><td colspan="9" class="py-space-md text-center text-on-surface-variant font-label-code">NO OPEN STRANGLE POSITIONS ON DELTA</td></tr>`;
+      updateBatchActionBar();
       return;
     }
 
     dom.positionsTbody.innerHTML = positions.map(p => {
       const sym = p.symbol || p.product_symbol || 'BTC Option';
+      const key = `${p.product_id || ''}_${sym}`;
+      const isChecked = state.selectedPositionKeys.has(key) ? 'checked' : '';
       const isCall = sym.startsWith('C-');
       const sideText = isCall ? 'SHORT CALL' : 'SHORT PUT';
       const sizeVal = Math.abs(parseInt(p.size || p.lots || 100));
@@ -359,6 +392,9 @@
 
       return `
         <tr class="hover:bg-surface-container-low transition-colors">
+          <td class="py-space-sm px-space-md text-center w-10">
+            <input type="checkbox" class="pos-checkbox rounded bg-surface-container-high border-border-subtle text-telemetry-cyan focus:ring-0 cursor-pointer" data-key="${key}" ${isChecked}>
+          </td>
           <td class="py-space-sm px-space-md">
             <div class="flex items-center gap-space-sm">
               <span class="w-2 h-2 rounded-full ${isCall ? 'bg-critical-crimson' : 'bg-telemetry-cyan'}"></span>
@@ -383,6 +419,21 @@
         </tr>
       `;
     }).join('');
+
+    // Bind row checkbox events
+    dom.positionsTbody.querySelectorAll('.pos-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const k = e.currentTarget.getAttribute('data-key');
+        if (e.currentTarget.checked) {
+          state.selectedPositionKeys.add(k);
+        } else {
+          state.selectedPositionKeys.delete(k);
+        }
+        updateBatchActionBar();
+      });
+    });
+
+    updateBatchActionBar();
 
     // Bind close buttons
     dom.positionsTbody.querySelectorAll('.btn-close-single').forEach(btn => {
@@ -504,6 +555,213 @@
     setInterval(tick, 1000);
   }
 
+
+  // --- Strategy Group Creation & Multi-Select Management ---
+  function updateBatchActionBar() {
+    if (!dom.batchActionBar) return;
+    const selectedPositions = (state.positions || []).filter(p => {
+      const k = `${p.product_id || ''}_${p.symbol || p.product_symbol || ''}`;
+      return state.selectedPositionKeys.has(k);
+    });
+
+    const count = selectedPositions.length;
+    if (count > 0) {
+      dom.batchActionBar.classList.remove('hidden');
+      dom.batchActionBar.classList.add('flex');
+      if (dom.batchCount) dom.batchCount.textContent = `${count} SELECTED`;
+      const netPnl = selectedPositions.reduce((acc, p) => acc + parseFloat(p.unrealized_pnl || 0), 0);
+      const isProf = netPnl >= 0;
+      if (dom.batchPnl) {
+        dom.batchPnl.textContent = `MTM: ${isProf ? '+' : ''}$${fmt(netPnl, 2)} USD`;
+        dom.batchPnl.className = `font-data-md text-data-md font-bold ${isProf ? 'text-execution-emerald' : 'text-critical-crimson'}`;
+      }
+    } else {
+      dom.batchActionBar.classList.add('hidden');
+      dom.batchActionBar.classList.remove('flex');
+    }
+
+    if (dom.selectAllPositions) {
+      dom.selectAllPositions.checked = count > 0 && count === (state.positions || []).length;
+    }
+  }
+
+  function onSelectAllPositionsChange(e) {
+    const isChecked = e.currentTarget.checked;
+    state.selectedPositionKeys.clear();
+    if (isChecked && state.positions) {
+      state.positions.forEach(p => {
+        const k = `${p.product_id || ''}_${p.symbol || p.product_symbol || ''}`;
+        state.selectedPositionKeys.add(k);
+      });
+    }
+    if (dom.positionsTbody) {
+      dom.positionsTbody.querySelectorAll('.pos-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+      });
+    }
+    updateBatchActionBar();
+  }
+
+  function openGroupModal() {
+    const selectedPositions = (state.positions || []).filter(p => {
+      const k = `${p.product_id || ''}_${p.symbol || p.product_symbol || ''}`;
+      return state.selectedPositionKeys.has(k);
+    });
+
+    if (selectedPositions.length < 2) {
+      alert('Please select at least 2 positions using the checkboxes to combine into a strategy group.');
+      return;
+    }
+
+    if (dom.groupNameInput) {
+      dom.groupNameInput.value = `Strategy Pair #${(state.groups || []).length + 1}`;
+    }
+
+    const netPnl = selectedPositions.reduce((acc, p) => acc + parseFloat(p.unrealized_pnl || 0), 0);
+    if (dom.groupCurrentMtm) {
+      dom.groupCurrentMtm.textContent = `${netPnl >= 0 ? '+' : ''}$${fmt(netPnl, 2)} USD`;
+      dom.groupCurrentMtm.className = netPnl >= 0 ? 'text-execution-emerald font-bold' : 'text-critical-crimson font-bold';
+    }
+
+    if (dom.selectedLegsList) {
+      dom.selectedLegsList.innerHTML = selectedPositions.map(p => {
+        const sym = p.symbol || p.product_symbol || 'Option';
+        const upnl = parseFloat(p.unrealized_pnl || 0);
+        const sz = Math.abs(parseInt(p.size || 100));
+        return `<div class="flex justify-between items-center py-0.5 border-b border-border-subtle/50 text-[11px]">
+          <span class="font-bold font-label-code text-on-surface">${sym} (${sz} Lots)</span>
+          <span class="${upnl >= 0 ? 'text-execution-emerald' : 'text-critical-crimson'} font-data-md font-bold">${upnl >= 0 ? '+' : ''}$${fmt(upnl, 2)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Default target: $15.00 or 20% of net premium; SL: $30.00
+    if (dom.groupTargetInput) dom.groupTargetInput.value = '15.00';
+    if (dom.groupStopLossInput) dom.groupStopLossInput.value = '30.00';
+
+    if (dom.groupModal) {
+      dom.groupModal.classList.remove('hidden');
+      dom.groupModal.classList.add('flex');
+    }
+  }
+
+  function closeGroupModal() {
+    if (dom.groupModal) {
+      dom.groupModal.classList.add('hidden');
+      dom.groupModal.classList.remove('flex');
+    }
+  }
+
+  async function saveStrategyGroup() {
+    const selectedPositions = (state.positions || []).filter(p => {
+      const k = `${p.product_id || ''}_${p.symbol || p.product_symbol || ''}`;
+      return state.selectedPositionKeys.has(k);
+    });
+
+    if (selectedPositions.length < 2) {
+      alert('Selected positions expired or unavailable.');
+      return;
+    }
+
+    const targetVal = parseFloat(dom.groupTargetInput.value);
+    const slVal = parseFloat(dom.groupStopLossInput.value);
+    if (isNaN(targetVal) || targetVal <= 0 || isNaN(slVal) || slVal <= 0) {
+      alert('Please enter valid positive numbers for Target and Stop-Loss.');
+      return;
+    }
+
+    const groupName = dom.groupNameInput.value.trim() || `Strategy Pair #${(state.groups || []).length + 1}`;
+    const newGroup = {
+      id: `grp_custom_${Date.now()}`,
+      name: groupName,
+      strategy_type: 'CUSTOM_GROUP',
+      positions: selectedPositions,
+      target: targetVal,
+      stopLoss: slVal,
+      status: 'MONITORING',
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      if (dom.groupModalSaveBtn) dom.groupModalSaveBtn.disabled = true;
+      const res = await fetch('/api/strategy-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group: newGroup })
+      });
+      const data = await res.json();
+      closeGroupModal();
+      state.selectedPositionKeys.clear();
+      updateBatchActionBar();
+      await refreshTelemetry();
+      alert(`Success! Strategy group "${groupName}" is now actively monitored 24/7 by the cloud daemon!`);
+    } catch (err) {
+      alert('Error activating strategy group: ' + err);
+    } finally {
+      if (dom.groupModalSaveBtn) dom.groupModalSaveBtn.disabled = false;
+    }
+  }
+
+  function openEditGroupModal() {
+    const activeGroup = (state.groups || []).find(g => g.status === 'MONITORING') || (state.groups || [])[0];
+    if (!activeGroup) {
+      alert('No active strategy group found to edit.');
+      return;
+    }
+
+    if (dom.editGroupIdInput) dom.editGroupIdInput.value = activeGroup.id || '';
+    if (dom.editGroupNameInput) dom.editGroupNameInput.value = activeGroup.name || 'BTC Strategy';
+    if (dom.editGroupTargetInput) dom.editGroupTargetInput.value = activeGroup.target || 30.50;
+    if (dom.editGroupStopLossInput) dom.editGroupStopLossInput.value = activeGroup.stopLoss || 61.00;
+
+    if (dom.editGroupModal) {
+      dom.editGroupModal.classList.remove('hidden');
+      dom.editGroupModal.classList.add('flex');
+    }
+  }
+
+  function closeEditGroupModal() {
+    if (dom.editGroupModal) {
+      dom.editGroupModal.classList.add('hidden');
+      dom.editGroupModal.classList.remove('flex');
+    }
+  }
+
+  async function saveEditedStrategyGroup() {
+    const targetVal = parseFloat(dom.editGroupTargetInput.value);
+    const slVal = parseFloat(dom.editGroupStopLossInput.value);
+    if (isNaN(targetVal) || targetVal <= 0 || isNaN(slVal) || slVal <= 0) {
+      alert('Please enter valid positive numbers for Target and Stop-Loss.');
+      return;
+    }
+
+    const activeGroup = (state.groups || []).find(g => g.id === dom.editGroupIdInput.value) || (state.groups || [])[0];
+    if (!activeGroup) {
+      alert('Active strategy group not found.');
+      return;
+    }
+
+    activeGroup.target = targetVal;
+    activeGroup.stopLoss = slVal;
+
+    try {
+      if (dom.editGroupModalSaveBtn) dom.editGroupModalSaveBtn.disabled = true;
+      const res = await fetch('/api/strategy-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ group: activeGroup })
+      });
+      const data = await res.json();
+      closeEditGroupModal();
+      await refreshTelemetry();
+      alert(`Success! Updated Combined Target to +$${targetVal.toFixed(2)} USD and Stop-Loss to -$${slVal.toFixed(2)} USD.`);
+    } catch (err) {
+      alert('Error updating thresholds: ' + err);
+    } finally {
+      if (dom.editGroupModalSaveBtn) dom.editGroupModalSaveBtn.disabled = false;
+    }
+  }
+
   // 8. Event Bindings
   function bindEvents() {
     // A. Lot Selector Chips (50, 100, 150, 200)
@@ -551,6 +809,37 @@
           console.warn('Toggle error:', err);
         }
       });
+    }
+
+    // Multi-Select Checkbox & Strategy Group Triggers
+    if (dom.selectAllPositions) {
+      dom.selectAllPositions.addEventListener('change', onSelectAllPositionsChange);
+    }
+    if (dom.openGroupModalBtn) {
+      dom.openGroupModalBtn.addEventListener('click', openGroupModal);
+    }
+    if (dom.groupModalCloseBtn) {
+      dom.groupModalCloseBtn.addEventListener('click', closeGroupModal);
+    }
+    if (dom.groupModalCancelBtn) {
+      dom.groupModalCancelBtn.addEventListener('click', closeGroupModal);
+    }
+    if (dom.groupModalSaveBtn) {
+      dom.groupModalSaveBtn.addEventListener('click', saveStrategyGroup);
+    }
+
+    // Edit Strategy Group TP / SL Triggers
+    if (dom.btnEditActiveGroup) {
+      dom.btnEditActiveGroup.addEventListener('click', openEditGroupModal);
+    }
+    if (dom.editGroupModalCloseBtn) {
+      dom.editGroupModalCloseBtn.addEventListener('click', closeEditGroupModal);
+    }
+    if (dom.editGroupModalCancelBtn) {
+      dom.editGroupModalCancelBtn.addEventListener('click', closeEditGroupModal);
+    }
+    if (dom.editGroupModalSaveBtn) {
+      dom.editGroupModalSaveBtn.addEventListener('click', saveEditedStrategyGroup);
     }
 
     // D. Emergency Exit All
