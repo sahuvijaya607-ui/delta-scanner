@@ -795,6 +795,17 @@
       });
     }
 
+    // Direct Lot Input Change (Typing custom lot size)
+    if (dom.inputLots) {
+      dom.inputLots.addEventListener('change', async (e) => {
+        let val = parseInt(e.currentTarget.value || 100, 10);
+        if (isNaN(val) || val < 10) val = 10;
+        if (val > 1000) val = 1000;
+        dom.inputLots.value = val;
+        await saveLots(val);
+      });
+    }
+
     // C. Autopilot Selling Toggle
     if (dom.toggleAutopilot) {
       dom.toggleAutopilot.addEventListener('click', async () => {
