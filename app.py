@@ -4599,10 +4599,39 @@ def api_strategy_groups():
 
 
     # GET request
-
     with GROUPS_LOCK:
-
         groups = load_server_strategy_groups()
+
+    # Enrich groups with live official Delta cashflow UPNL
+    try:
+        creds = load_persistent_credentials()
+        if creds:
+            client = DeltaRESTClient(creds["environment"], creds["api_key"], creds["api_secret"])
+            raw_pos = client.authenticated_request("GET", "/v2/positions/margined")
+            if isinstance(raw_pos, list):
+                pos_map = {}
+                for p in raw_pos:
+                    sym = p.get("product_symbol") or (p.get("product") or {}).get("symbol")
+                    rc = safe_float(p.get("realized_cashflow"))
+                    uc = safe_float(p.get("unrealized_cashflow"))
+                    upnl = (rc + uc) if (p.get("realized_cashflow") is not None and p.get("unrealized_cashflow") is not None) else 0.0
+                    if sym:
+                        pos_map[sym] = upnl
+
+                for g in groups:
+                    grp_pnl = 0.0
+                    matched = 0
+                    for leg in g.get("positions", []):
+                        lsym = leg.get("symbol")
+                        if lsym in pos_map:
+                            grp_pnl += pos_map[lsym]
+                            matched += 1
+                    if matched > 0:
+                        g["pnl"] = round(grp_pnl, 2)
+                    elif len(pos_map) > 0:
+                        g["pnl"] = round(sum(pos_map.values()), 2)
+    except Exception as enrich_err:
+        logger.debug("Group MTM live enrichment notice: %s", enrich_err)
 
     return jsonify(groups=groups)
 
