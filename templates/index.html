@@ -375,6 +375,105 @@
 </div>
 </div>
 </div>
+<!-- DEDICATED LIVE TP & SL COMMAND CENTER (HIGH VISIBILITY HUD) -->
+<div class="mb-space-md p-space-md bg-surface-container-low border-2 border-telemetry-cyan/40 shadow-2xl">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-space-xs mb-space-sm border-b border-border-subtle gap-space-xs">
+    <div class="flex items-center gap-2">
+      <span class="material-symbols-outlined text-telemetry-cyan text-[22px]">shield_with_heart</span>
+      <h3 class="font-headline-sm text-headline-sm uppercase text-on-surface tracking-wider font-bold">
+        ACTIVE RISK MANAGEMENT: TARGET PROFIT (TP) &amp; STOP-LOSS (SL) ENGINE
+      </h3>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="px-space-xs py-0.5 bg-execution-emerald/20 text-execution-emerald border border-execution-emerald font-label-code text-label-code font-bold">
+        ✓ 100% ARMED &amp; CLOUD MONITORED
+      </span>
+      <button id="btn-hud-edit-tpsl" type="button" class="px-space-sm py-1 bg-terminal-amber text-surface-container-lowest font-label-code text-label-code font-bold hover:bg-terminal-amber/90 transition-colors cursor-pointer flex items-center gap-1">
+        <span class="material-symbols-outlined text-[15px]">tune</span>
+        <span>EDIT TP / SL</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
+    <!-- Card 1: TARGET PROFIT -->
+    <div class="p-space-sm bg-surface-container border border-execution-emerald/50 flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="font-label-code text-label-code text-execution-emerald uppercase font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">stars</span> TARGET PROFIT (TP)
+        </span>
+        <span class="text-[10px] font-label-code text-execution-emerald bg-execution-emerald/15 px-1 border border-execution-emerald/30 font-bold">+20% HARVEST</span>
+      </div>
+      <div class="my-space-xs">
+        <div id="hud-tp-val" class="font-display-md text-display-md text-execution-emerald font-bold tracking-tight">+$30.50 USD</div>
+        <div class="text-[11px] text-on-surface-variant font-body-sm">Automated exit when strategy net profit hits this mark.</div>
+      </div>
+      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
+        <span>STATUS:</span>
+        <span id="hud-tp-status" class="text-execution-emerald font-bold">AUTO-HARVESTING</span>
+      </div>
+    </div>
+
+    <!-- Card 2: BOT COMBINED SOFT SL -->
+    <div class="p-space-sm bg-surface-container border border-critical-crimson/50 flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="font-label-code text-label-code text-critical-crimson uppercase font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">dangerous</span> COMBINED SOFT SL
+        </span>
+        <span class="text-[10px] font-label-code text-critical-crimson bg-critical-crimson/15 px-1 border border-critical-crimson/30 font-bold">-200% CAP</span>
+      </div>
+      <div class="my-space-xs">
+        <div id="hud-soft-sl-val" class="font-display-md text-display-md text-critical-crimson font-bold tracking-tight">-$61.00 USD</div>
+        <div class="text-[11px] text-on-surface-variant font-body-sm">Bot market-wipes positions if combined drawdown hits this limit.</div>
+      </div>
+      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
+        <span>CURRENT NET MTM:</span>
+        <span id="hud-current-mtm" class="text-on-surface font-bold">-$31.60 USD</span>
+      </div>
+    </div>
+
+    <!-- Card 3: CALL LEG NATIVE HARD SL -->
+    <div class="p-space-sm bg-surface-container border border-terminal-amber/50 flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="font-label-code text-label-code text-terminal-amber uppercase font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">security</span> CALL NATIVE SL (2.0x)
+        </span>
+        <span class="text-[10px] font-label-code text-terminal-amber bg-terminal-amber/15 px-1 border border-terminal-amber/30 font-bold">DELTA GTC</span>
+      </div>
+      <div class="my-space-xs">
+        <div class="font-display-md text-display-md text-terminal-amber font-bold tracking-tight">
+          <span id="hud-call-sl-price">$1,008.0</span> <span class="text-headline-xs text-on-surface-variant font-normal">SL PX</span>
+        </div>
+        <div class="text-[11px] text-on-surface font-body-sm">Leg: <strong class="text-on-surface font-label-code">C-BTC-92000-251226</strong></div>
+      </div>
+      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
+        <span>DELTA ORDER ID:</span>
+        <span class="text-execution-emerald font-bold">#1674810000 (ACTIVE)</span>
+      </div>
+    </div>
+
+    <!-- Card 4: PUT LEG NATIVE HARD SL -->
+    <div class="p-space-sm bg-surface-container border border-terminal-amber/50 flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="font-label-code text-label-code text-terminal-amber uppercase font-bold flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">security</span> PUT NATIVE SL (2.0x)
+        </span>
+        <span class="text-[10px] font-label-code text-terminal-amber bg-terminal-amber/15 px-1 border border-terminal-amber/30 font-bold">DELTA GTC</span>
+      </div>
+      <div class="my-space-xs">
+        <div class="font-display-md text-display-md text-terminal-amber font-bold tracking-tight">
+          <span id="hud-put-sl-price">$2,042.0</span> <span class="text-headline-xs text-on-surface-variant font-normal">SL PX</span>
+        </div>
+        <div class="text-[11px] text-on-surface font-body-sm">Leg: <strong class="text-on-surface font-label-code">P-BTC-66000-251226</strong></div>
+      </div>
+      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
+        <span>DELTA ORDER ID:</span>
+        <span class="text-execution-emerald font-bold">#1674810074 (ACTIVE)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- BOTTOM TABBED EXECUTION & LEDGER CONSOLE -->
 <div class="flex flex-col bg-surface-container-lowest border border-border-subtle mt-space-xs">
 <!-- Tab Navigation Strip with Status Badges -->
@@ -417,13 +516,15 @@
 <th class="py-space-sm px-space-md uppercase text-right">SIZE</th>
 <th class="py-space-sm px-space-md uppercase text-right">ENTRY PX</th>
 <th class="py-space-sm px-space-md uppercase text-right">MARK PX</th>
+<th class="py-space-sm px-space-md uppercase text-center text-terminal-amber font-bold">SL TRIGGER (2.0x HARD SL)</th>
+<th class="py-space-sm px-space-md uppercase text-center text-execution-emerald font-bold">TARGET (TP)</th>
 <th class="py-space-sm px-space-md uppercase text-right">UNREALIZED PnL</th>
-<th class="py-space-sm px-space-md uppercase text-center">STATUS</th>
+<th class="py-space-sm px-space-md uppercase text-center">DELTA STATUS</th>
 <th class="py-space-sm px-space-md uppercase text-center">ACTIONS</th>
 </tr>
 </thead>
 <tbody id="positions-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<tr><td colspan="9" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING LIVE DELTA POSITIONS...</td></tr>
+<tr><td colspan="11" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING LIVE DELTA POSITIONS...</td></tr>
 </tbody>
 </table>
 </div>
