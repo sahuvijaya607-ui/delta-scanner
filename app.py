@@ -3060,8 +3060,10 @@ def reconcile_open_strangle_positions() -> List[Dict[str, Any]]:
                     try:
                         c_sl = round(c_entry * 2.0, 1)
                         p_sl = round(p_entry * 2.0, 1)
-                        set_delta_native_bracket_sl(creds["environment"], creds["api_key"], creds["api_secret"], int(c.get("product_id")), c_sl)
-                        set_delta_native_bracket_sl(creds["environment"], creds["api_key"], creds["api_secret"], int(p.get("product_id")), p_sl)
+                        c_qty = abs(int(safe_float(c.get("size", 100))))
+                        p_qty = abs(int(safe_float(p.get("size", 100))))
+                        set_delta_native_bracket_sl(creds["environment"], creds["api_key"], creds["api_secret"], int(c.get("product_id")), c_qty, c_sl)
+                        set_delta_native_bracket_sl(creds["environment"], creds["api_key"], creds["api_secret"], int(p.get("product_id")), p_qty, p_sl)
                         reconciled_group["native_sl_call"] = c_sl
                         reconciled_group["native_sl_put"] = p_sl
                     except Exception as sl_err:
@@ -3661,24 +3663,28 @@ def calculate_strangle_math(call_price: float, put_price: float, lots: int) -> D
 
 
 
-def set_delta_native_bracket_sl(env: str, key: str, secret: str, product_id: int, stop_loss_price: float) -> bool:
-    """Attach native GTC bracket stop loss order directly to Delta Exchange matching engine."""
+def set_delta_native_bracket_sl(env: str, key: str, secret: str, product_id: int, size: int, stop_loss_price: float) -> bool:
+    """Attach native GTC Stop-Loss order directly to Delta Exchange matching engine (visible in Stop Orders tab)."""
     try:
         client = DeltaRESTClient(env, key, secret)
-        sl_str = str(round(float(stop_loss_price), 1))
-        res = client.authenticated_request(
-            "POST",
-            "/v2/orders/bracket",
-            body={
-                "product_id": int(product_id),
-                "bracket_stop_loss_price": sl_str,
-                "bracket_stop_loss_limit_price": sl_str,
-            },
-        )
-        logger.info("🛡️ Native Sleep-Safe SL successfully placed on Delta Exchange: Product %s @ %s", product_id, sl_str)
+        sl_float = round(float(stop_loss_price), 1)
+        limit_float = round(sl_float * 1.05, 1)
+        body = {
+            "product_id": int(product_id),
+            "size": abs(int(size)),
+            "side": "buy",
+            "order_type": "limit_order",
+            "stop_order_type": "stop_loss_order",
+            "stop_price": str(sl_float),
+            "limit_price": str(limit_float),
+            "stop_trigger_method": "mark_price",
+        }
+        res = client.authenticated_request("POST", "/v2/orders", body=body)
+        order_id = (res or {}).get("id")
+        logger.info("🛡️ Native Sleep-Safe Stop Order placed on Delta Exchange: Order #%s | Product %s @ %s", order_id, product_id, sl_float)
         return True
     except Exception as exc:
-        logger.warning("Could not attach native bracket SL for product %s: %s", product_id, exc)
+        logger.warning("Could not attach native stop order for product %s: %s", product_id, exc)
         return False
 
 
@@ -3801,8 +3807,8 @@ def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 
     # 2.5 Attach Native Sleep-Safe Stop-Loss directly on Delta Exchange matching engine
     call_sl_price = round(call_fill * 2.0, 1)
     put_sl_price = round(put_fill * 2.0, 1)
-    call_sl_ok = set_delta_native_bracket_sl(env, key, secret, int(call_leg["product_id"]), call_sl_price)
-    put_sl_ok = set_delta_native_bracket_sl(env, key, secret, int(put_leg["product_id"]), put_sl_price)
+    call_sl_ok = set_delta_native_bracket_sl(env, key, secret, int(call_leg["product_id"]), int(lots), call_sl_price)
+    put_sl_ok = set_delta_native_bracket_sl(env, key, secret, int(put_leg["product_id"]), int(lots), put_sl_price)
 
 
 
@@ -4898,7 +4904,8 @@ def api_set_native_sl():
         entry_p = safe_float(pos.get("entry_price"))
         if prod_id and entry_p > 0:
             sl_price = round(entry_p * 2.0, 1)
-            ok = set_delta_native_bracket_sl(state["environment"], state["api_key"], state["api_secret"], prod_id, sl_price)
+            pos_size = abs(int(safe_float(pos.get("size", 100))))
+            ok = set_delta_native_bracket_sl(state["environment"], state["api_key"], state["api_secret"], prod_id, pos_size, sl_price)
             results.append({"product_id": prod_id, "symbol": pos.get("symbol"), "sl_price": sl_price, "success": ok})
             
     return jsonify(ok=True, results=results, message="Native Sleep-Safe Stop Loss updated on Delta Exchange.")
