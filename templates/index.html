@@ -94,7 +94,7 @@
 <span class="font-headline-sm text-headline-sm uppercase text-on-surface">Corridor Volatility Tunnel</span>
 </div>
 <div class="flex items-center gap-space-md font-label-code text-label-code">
-<span class="text-on-surface-variant">SAFE BUFFER: <span class="text-execution-emerald font-bold">$26,000.00 (34.30% RANGE)</span></span>
+<span class="text-on-surface-variant">SAFE BUFFER: <span id="gauge-safe-buffer-text" class="text-execution-emerald font-bold">$26,000.00 (34.30% RANGE)</span></span>
 <span class="text-border-prominent">|</span>
 <span class="text-on-surface-variant">MODEL: <span class="text-telemetry-cyan">BTM-STOCH-VOL-2.4</span></span>
 </div>
@@ -199,31 +199,31 @@
 <div>
 <div class="flex items-center justify-between mb-space-xs">
 <span class="font-label-code text-label-code text-on-surface-variant uppercase">CURRENT RUN UNREALIZED PnL</span>
-<span class="font-label-code text-label-code text-execution-emerald px-space-xs py-0.5 bg-execution-emerald/10 border border-execution-emerald/40">+1.25% RoM</span>
+<span id="hero-rom-badge" class="font-label-code text-label-code text-execution-emerald px-space-xs py-0.5 bg-execution-emerald/10 border border-execution-emerald/40">+0.00% RoM</span>
 </div>
 <div class="flex items-baseline gap-space-md my-space-xs">
-<span id="hero-upnl-text" class="font-display-lg text-display-lg text-execution-emerald font-bold tracking-tight">+$1.90 <span class="text-headline-sm font-data-md text-on-surface-variant font-normal">USD</span></span>
+<span id="hero-upnl-text" class="font-display-lg text-display-lg text-execution-emerald font-bold tracking-tight">$0.00 <span class="text-headline-sm font-data-md text-on-surface-variant font-normal">USD</span></span>
 <div class="flex items-center gap-1 font-label-code text-label-code text-execution-emerald">
 <span class="material-symbols-outlined text-[14px]">trending_up</span>
-<span>HARVESTING</span>
+<span id="hero-status-badge">MONITORING</span>
 </div>
 </div>
-<div class="text-on-surface-variant font-body-sm text-body-sm mb-space-sm">
-              Current Capital Margin: $152.00 USD | Realized Accrual: $0.00
-            </div>
+<div id="hero-margin-text" class="text-on-surface-variant font-body-sm text-body-sm mb-space-sm">
+  Blocked Margin: $0.00 USD | Total Credit Received: $0.00 USD
+</div>
 </div>
 <!-- Target Progress Meter -->
 <div class="flex flex-col gap-space-xs border-t border-border-subtle pt-space-sm">
 <div class="flex justify-between items-center font-label-code text-label-code">
 <span class="text-on-surface-variant uppercase">CYCLE TARGET: <span id="hero-target-text" class="text-telemetry-cyan font-bold">+$30.50 USD</span> (20% Target)</span>
-<span id="hero-target-pct" class="text-telemetry-cyan font-bold">6.23% COMPLETED</span>
+<span id="hero-target-pct" class="text-telemetry-cyan font-bold">0.0% COMPLETED</span>
 </div>
 <div class="w-full bg-surface-container-high h-2 overflow-hidden">
-<div id="hero-target-bar" class="bg-gradient-to-r from-telemetry-cyan to-execution-emerald h-2 transition-all duration-500" style="width: 6.23%;"></div>
+<div id="hero-target-bar" class="bg-gradient-to-r from-telemetry-cyan to-execution-emerald h-2 transition-all duration-500" style="width: 0%;"></div>
 </div>
 <div class="flex justify-between items-center font-label-code text-[10px] text-on-surface-variant">
-<span>PREMIUM COLLECTED: $305.00</span>
-<span>EXTRINSIC VALUE: $303.10</span>
+<span id="hero-premium-collected">CREDIT COLLECTED: $0.00</span>
+<span id="hero-extrinsic-value">CURRENT VALUE: $0.00</span>
 </div>
 </div>
 </div>
@@ -379,17 +379,17 @@
 <button class="tab-btn active px-space-lg py-space-sm font-label-code text-label-code uppercase border-b-2 border-terminal-amber text-terminal-amber font-bold flex items-center gap-space-xs bg-surface-container-lowest" data-tab="tab-positions" type="button">
 <span class="material-symbols-outlined text-[15px]">table_rows</span>
 <span>LIVE STRANGLE POSITIONS</span>
-<span class="px-space-xs py-0.2 bg-terminal-amber/20 text-terminal-amber font-data-md text-data-md">2</span>
+<span id="badge-positions-count" class="px-space-xs py-0.2 bg-terminal-amber/20 text-terminal-amber font-data-md text-data-md">0</span>
 </button>
 <button class="tab-btn px-space-lg py-space-sm font-label-code text-label-code uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface flex items-center gap-space-xs transition-colors" data-tab="tab-stops" type="button">
 <span class="material-symbols-outlined text-[15px]">security</span>
 <span>DELTA PENDING STOP ORDERS</span>
-<span class="px-space-xs py-0.2 bg-telemetry-cyan/20 text-telemetry-cyan font-data-md text-data-md">2</span>
+<span id="badge-stops-count" class="px-space-xs py-0.2 bg-telemetry-cyan/20 text-telemetry-cyan font-data-md text-data-md">0</span>
 </button>
 <button class="tab-btn px-space-lg py-space-sm font-label-code text-label-code uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface flex items-center gap-space-xs transition-colors" data-tab="tab-audit" type="button">
 <span class="material-symbols-outlined text-[15px]">history</span>
 <span>AUDIT &amp; TRADE RUN HISTORY</span>
-<span class="px-space-xs py-0.2 bg-surface-container-high text-on-surface-variant font-data-md text-data-md">38</span>
+<span id="badge-audit-count" class="px-space-xs py-0.2 bg-surface-container-high text-on-surface-variant font-data-md text-data-md">0</span>
 </button>
 </div>
 <!-- TAB PANEL 1: LIVE POSITIONS -->
@@ -403,90 +403,12 @@
 <th class="py-space-sm px-space-md uppercase text-right">ENTRY PX</th>
 <th class="py-space-sm px-space-md uppercase text-right">MARK PX</th>
 <th class="py-space-sm px-space-md uppercase text-right">UNREALIZED PnL</th>
-<th class="py-space-sm px-space-md uppercase text-center">GREEKS (Δ / Γ / Θ / ν)</th>
-<th class="py-space-sm px-space-md uppercase text-right">MARGIN REQ</th>
+<th class="py-space-sm px-space-md uppercase text-center">STATUS</th>
 <th class="py-space-sm px-space-md uppercase text-center">ACTIONS</th>
 </tr>
 </thead>
 <tbody id="positions-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<!-- Row 1: Short Call -->
-<tr class="hover:bg-surface-container-low transition-colors">
-<td class="py-space-sm px-space-md">
-<div class="flex items-center gap-space-sm">
-<span class="w-2 h-2 rounded-full bg-critical-crimson"></span>
-<span class="font-bold text-on-surface">C-BTC-92000-251226</span>
-<span class="px-space-xs py-0.5 bg-surface-container-high text-[10px] text-on-surface-variant font-label-code">CALL 92K</span>
-</div>
-</td>
-<td class="py-space-sm px-space-md font-label-code text-critical-crimson uppercase font-bold">SHORT CALL</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-right text-on-surface-variant">$1,420.00</td>
-<td class="py-space-sm px-space-md text-right text-telemetry-cyan font-bold">$1,410.50</td>
-<td class="py-space-sm px-space-md text-right text-execution-emerald font-bold">
-              +$0.95 <span class="text-body-sm font-normal text-execution-emerald/80">(+0.67%)</span>
-</td>
-<td class="py-space-sm px-space-md text-center">
-<div class="inline-flex items-center gap-space-xs font-label-code text-[11px] bg-surface-container px-space-sm py-0.5 border border-border-subtle">
-<span class="text-on-surface-variant">Δ:</span><span class="text-execution-emerald font-bold">+0.16</span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">Γ:</span><span class="text-on-surface font-bold">0.00004</span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">Θ:</span><span class="text-execution-emerald font-bold">+$2.45</span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">ν:</span><span class="text-critical-crimson font-bold">-7.12</span>
-</div>
-</td>
-<td class="py-space-sm px-space-md text-right text-on-surface font-bold">$78.40 USD</td>
-<td class="py-space-sm px-space-md text-center">
-<div class="flex items-center justify-center gap-space-xs">
-<button class="px-space-sm py-0.5 bg-surface-container border border-border-prominent hover:border-terminal-amber text-on-surface font-label-code text-[10px] uppercase" type="button">
-                  CLOSE
-                </button>
-<button class="px-space-sm py-0.5 bg-surface-container border border-border-prominent hover:border-critical-crimson text-critical-crimson font-label-code text-[10px] uppercase" type="button">
-                  SL
-                </button>
-</div>
-</td>
-</tr>
-<!-- Row 2: Short Put -->
-<tr class="hover:bg-surface-container-low transition-colors">
-<td class="py-space-sm px-space-md">
-<div class="flex items-center gap-space-sm">
-<span class="w-2 h-2 rounded-full bg-critical-crimson"></span>
-<span class="font-bold text-on-surface">P-BTC-66000-251226</span>
-<span class="px-space-xs py-0.5 bg-surface-container-high text-[10px] text-on-surface-variant font-label-code">PUT 66K</span>
-</div>
-</td>
-<td class="py-space-sm px-space-md font-label-code text-critical-crimson uppercase font-bold">SHORT PUT</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-right text-on-surface-variant">$1,630.00</td>
-<td class="py-space-sm px-space-md text-right text-telemetry-cyan font-bold">$1,620.50</td>
-<td class="py-space-sm px-space-md text-right text-execution-emerald font-bold">
-              +$0.95 <span class="text-body-sm font-normal text-execution-emerald/80">(+0.58%)</span>
-</td>
-<td class="py-space-sm px-space-md text-center">
-<div class="inline-flex items-center gap-space-xs font-label-code text-[11px] bg-surface-container px-space-sm py-0.5 border border-border-subtle">
-<span class="text-on-surface-variant">Δ:</span><span class="text-critical-crimson font-bold">-0.14</span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">Γ:</span><span class="text-on-surface font-bold">0.00003</span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">Θ:</span><span class="text-execution-emerald font-bold">+$2.37</span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">ν:</span><span class="text-critical-crimson font-bold">-7.08</span>
-</div>
-</td>
-<td class="py-space-sm px-space-md text-right text-on-surface font-bold">$73.60 USD</td>
-<td class="py-space-sm px-space-md text-center">
-<div class="flex items-center justify-center gap-space-xs">
-<button class="px-space-sm py-0.5 bg-surface-container border border-border-prominent hover:border-terminal-amber text-on-surface font-label-code text-[10px] uppercase" type="button">
-                  CLOSE
-                </button>
-<button class="px-space-sm py-0.5 bg-surface-container border border-border-prominent hover:border-critical-crimson text-critical-crimson font-label-code text-[10px] uppercase" type="button">
-                  SL
-                </button>
-</div>
-</td>
-</tr>
+<tr><td colspan="8" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING LIVE DELTA POSITIONS...</td></tr>
 </tbody>
 </table>
 </div>
@@ -496,52 +418,16 @@
 <thead>
 <tr class="bg-surface-container border-b border-border-subtle font-label-code text-label-code text-on-surface-variant">
 <th class="py-space-sm px-space-md uppercase">ORDER ID</th>
-<th class="py-space-sm px-space-md uppercase">TRIGGER CONDITION</th>
-<th class="py-space-sm px-space-md uppercase">TYPE</th>
-<th class="py-space-sm px-space-md uppercase text-right">STOP LIMIT PX</th>
-<th class="py-space-sm px-space-md uppercase text-right">ORDER QTY</th>
-<th class="py-space-sm px-space-md uppercase">DESTINATION EXCH</th>
-<th class="py-space-sm px-space-md uppercase text-center">ORDERBOOK STATUS</th>
-<th class="py-space-sm px-space-md uppercase text-center">OVERRIDE</th>
+<th class="py-space-sm px-space-md uppercase">OPTION CONTRACT</th>
+<th class="py-space-sm px-space-md uppercase">STOP ORDER TYPE</th>
+<th class="py-space-sm px-space-md uppercase text-right">STOP TRIGGER</th>
+<th class="py-space-sm px-space-md uppercase text-right">LIMIT PRICE</th>
+<th class="py-space-sm px-space-md uppercase text-right">SIZE</th>
+<th class="py-space-sm px-space-md uppercase text-center">DELTA STATUS</th>
 </tr>
 </thead>
 <tbody id="stops-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<tr class="hover:bg-surface-container-low">
-<td class="py-space-sm px-space-md text-telemetry-cyan font-bold">#1674588023</td>
-<td class="py-space-sm px-space-md font-label-code text-terminal-amber font-bold">INDEX &gt;= $92,000.00 (CALL HARD SL)</td>
-<td class="py-space-sm px-space-md text-on-surface-variant font-label-code uppercase">STOP LIMIT (BUY TO COVER)</td>
-<td class="py-space-sm px-space-md text-right text-critical-crimson font-bold">$1,008.00</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-on-surface-variant font-label-code">DELTA EXCHANGE MATCH ENGINE</td>
-<td class="py-space-sm px-space-md text-center">
-<span class="px-space-xs py-0.5 bg-execution-emerald/15 text-execution-emerald border border-execution-emerald/40 font-label-code text-[10px] uppercase">
-                ACTIVE IN ORDERBOOK
-              </span>
-</td>
-<td class="py-space-sm px-space-md text-center">
-<button class="px-space-sm py-0.5 bg-surface-container border border-critical-crimson text-critical-crimson hover:bg-critical-crimson hover:text-white font-label-code text-[10px] uppercase" type="button">
-                CANCEL
-              </button>
-</td>
-</tr>
-<tr class="hover:bg-surface-container-low">
-<td class="py-space-sm px-space-md text-telemetry-cyan font-bold">#1674590567</td>
-<td class="py-space-sm px-space-md font-label-code text-terminal-amber font-bold">INDEX &lt;= $66,000.00 (PUT HARD SL)</td>
-<td class="py-space-sm px-space-md text-on-surface-variant font-label-code uppercase">STOP LIMIT (BUY TO COVER)</td>
-<td class="py-space-sm px-space-md text-right text-critical-crimson font-bold">$2,042.00</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-on-surface-variant font-label-code">DELTA EXCHANGE MATCH ENGINE</td>
-<td class="py-space-sm px-space-md text-center">
-<span class="px-space-xs py-0.5 bg-execution-emerald/15 text-execution-emerald border border-execution-emerald/40 font-label-code text-[10px] uppercase">
-                ACTIVE IN ORDERBOOK
-              </span>
-</td>
-<td class="py-space-sm px-space-md text-center">
-<button class="px-space-sm py-0.5 bg-surface-container border border-critical-crimson text-critical-crimson hover:bg-critical-crimson hover:text-white font-label-code text-[10px] uppercase" type="button">
-                CANCEL
-              </button>
-</td>
-</tr>
+<tr><td colspan="7" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING DELTA PENDING STOP ORDERS...</td></tr>
 </tbody>
 </table>
 </div>
@@ -553,62 +439,13 @@
 <th class="py-space-sm px-space-md uppercase">SETTLEMENT DATE</th>
 <th class="py-space-sm px-space-md uppercase">STRATEGY RUN</th>
 <th class="py-space-sm px-space-md uppercase text-right">SIZE</th>
-<th class="py-space-sm px-space-md uppercase text-right">COLLATERAL LOCKED</th>
 <th class="py-space-sm px-space-md uppercase text-right">PROFIT REALIZED</th>
 <th class="py-space-sm px-space-md uppercase text-center">EXIT REASON</th>
-<th class="py-space-sm px-space-md uppercase text-right">HOLD DURATION</th>
-<th class="py-space-sm px-space-md uppercase text-center">LEDGER AUDIT HASH</th>
+<th class="py-space-sm px-space-md uppercase text-center">AUDIT HASH</th>
 </tr>
 </thead>
 <tbody id="audit-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<tr class="hover:bg-surface-container-low">
-<td class="py-space-sm px-space-md text-on-surface font-bold">28-NOV-2024</td>
-<td class="py-space-sm px-space-md text-telemetry-cyan font-bold">BTC 88k / 62k Strangle</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-right text-on-surface-variant">$164.00</td>
-<td class="py-space-sm px-space-md text-right text-execution-emerald font-bold">+$18.40 USD (+60% TP)</td>
-<td class="py-space-sm px-space-md text-center">
-<span class="px-space-xs py-0.5 bg-execution-emerald/15 text-execution-emerald border border-execution-emerald/40 font-label-code text-[10px] uppercase">
-                TARGET PROFIT REACHED
-              </span>
-</td>
-<td class="py-space-sm px-space-md text-right text-on-surface font-bold">14 DAYS</td>
-<td class="py-space-sm px-space-md text-center font-label-code text-[10px] text-on-surface-variant">
-              0x89e2...bb41
-            </td>
-</tr>
-<tr class="hover:bg-surface-container-low">
-<td class="py-space-sm px-space-md text-on-surface font-bold">31-OCT-2024</td>
-<td class="py-space-sm px-space-md text-telemetry-cyan font-bold">BTC 72k / 54k Strangle</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-right text-on-surface-variant">$150.00</td>
-<td class="py-space-sm px-space-md text-right text-execution-emerald font-bold">+$15.00 USD (+50% TP)</td>
-<td class="py-space-sm px-space-md text-center">
-<span class="px-space-xs py-0.5 bg-execution-emerald/15 text-execution-emerald border border-execution-emerald/40 font-label-code text-[10px] uppercase">
-                TARGET PROFIT REACHED
-              </span>
-</td>
-<td class="py-space-sm px-space-md text-right text-on-surface font-bold">11 DAYS</td>
-<td class="py-space-sm px-space-md text-center font-label-code text-[10px] text-on-surface-variant">
-              0x31a4...ef90
-            </td>
-</tr>
-<tr class="hover:bg-surface-container-low">
-<td class="py-space-sm px-space-md text-on-surface font-bold">26-SEP-2024</td>
-<td class="py-space-sm px-space-md text-telemetry-cyan font-bold">BTC 68k / 50k Strangle</td>
-<td class="py-space-sm px-space-md text-right font-bold text-on-surface">100 Lots</td>
-<td class="py-space-sm px-space-md text-right text-on-surface-variant">$155.00</td>
-<td class="py-space-sm px-space-md text-right text-execution-emerald font-bold">+$19.10 USD (+62% TP)</td>
-<td class="py-space-sm px-space-md text-center">
-<span class="px-space-xs py-0.5 bg-execution-emerald/15 text-execution-emerald border border-execution-emerald/40 font-label-code text-[10px] uppercase">
-                TARGET PROFIT REACHED
-              </span>
-</td>
-<td class="py-space-sm px-space-md text-right text-on-surface font-bold">18 DAYS</td>
-<td class="py-space-sm px-space-md text-center font-label-code text-[10px] text-on-surface-variant">
-              0x44c9...88a2
-            </td>
-</tr>
+<tr><td colspan="6" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING SETTLED AUDIT LOGS...</td></tr>
 </tbody>
 </table>
 </div>
