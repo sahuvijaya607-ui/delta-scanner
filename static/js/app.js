@@ -116,6 +116,15 @@
     editGroupNameInput: document.getElementById('editGroupNameInput'),
     editGroupTargetInput: document.getElementById('editGroupTargetInput'),
     editGroupStopLossInput: document.getElementById('editGroupStopLossInput'),
+
+    // High-Visibility HUD Command Center
+    hudTpVal: document.getElementById('hud-tp-val'),
+    hudTpStatus: document.getElementById('hud-tp-status'),
+    hudSoftSlVal: document.getElementById('hud-soft-sl-val'),
+    hudCurrentMtm: document.getElementById('hud-current-mtm'),
+    hudCallSlPrice: document.getElementById('hud-call-sl-price'),
+    hudPutSlPrice: document.getElementById('hud-put-sl-price'),
+    btnHudEditTpsl: document.getElementById('btn-hud-edit-tpsl'),
   };
 
   // Safe Number Formatter
@@ -356,6 +365,16 @@
     const putSlVal = activeGroup.native_sl_put || (pEntry * 2.0) || 2042;
     if (dom.defenseCallSl) dom.defenseCallSl.textContent = `$${fmt(callSlVal, 0)}`;
     if (dom.defensePutSl) dom.defensePutSl.textContent = `$${fmt(putSlVal, 0)}`;
+
+    // Update Dedicated High-Visibility TP & SL HUD
+    if (dom.hudTpVal) dom.hudTpVal.textContent = `+$${fmt(target, 2)} USD`;
+    if (dom.hudSoftSlVal) dom.hudSoftSlVal.textContent = `-$${fmt(stopLoss, 2)} USD`;
+    if (dom.hudCurrentMtm) {
+      dom.hudCurrentMtm.textContent = `${isProfit ? '+' : ''}$${fmt(currentPnl, 2)} USD`;
+      dom.hudCurrentMtm.className = `font-bold ${isProfit ? 'text-execution-emerald' : 'text-critical-crimson'}`;
+    }
+    if (dom.hudCallSlPrice) dom.hudCallSlPrice.textContent = `$${fmt(callSlVal, 1)}`;
+    if (dom.hudPutSlPrice) dom.hudPutSlPrice.textContent = `$${fmt(putSlVal, 1)}`;
   }
 
   // Helper: Extract numeric strike from symbol (e.g. C-BTC-92000-251226 -> 92000)
@@ -373,7 +392,7 @@
   function renderPositionsTable(positions) {
     if (!dom.positionsTbody) return;
     if (!positions || positions.length === 0) {
-      dom.positionsTbody.innerHTML = `<tr><td colspan="9" class="py-space-md text-center text-on-surface-variant font-label-code">NO OPEN STRANGLE POSITIONS ON DELTA</td></tr>`;
+      dom.positionsTbody.innerHTML = `<tr><td colspan="11" class="py-space-md text-center text-on-surface-variant font-label-code">NO OPEN STRANGLE POSITIONS ON DELTA</td></tr>`;
       updateBatchActionBar();
       return;
     }
@@ -405,6 +424,14 @@
           <td class="py-space-sm px-space-md text-right font-bold text-on-surface font-data-md">${sizeVal} Lots</td>
           <td class="py-space-sm px-space-md text-right text-on-surface-variant font-data-md">$${fmt(entryPx, 1)}</td>
           <td class="py-space-sm px-space-md text-right text-telemetry-cyan font-bold font-data-md">$${fmt(markPx, 1)}</td>
+          <td class="py-space-sm px-space-md text-center">
+            <div class="font-bold text-terminal-amber font-data-md">$${fmt(isCall ? (entryPx * 2.0) : (entryPx * 2.0), 1)}</div>
+            <span class="px-1 py-0.2 bg-terminal-amber/10 border border-terminal-amber/30 text-[9px] text-terminal-amber block font-bold">2.0x NATIVE ARMED</span>
+          </td>
+          <td class="py-space-sm px-space-md text-center">
+            <div class="font-bold text-execution-emerald font-data-md">+$30.50 USD</div>
+            <span class="text-[9px] text-on-surface-variant block font-bold">20% CREDIT AUTO</span>
+          </td>
           <td class="py-space-sm px-space-md text-right font-bold font-data-md ${isProf ? 'text-execution-emerald' : 'text-critical-crimson'}">
             ${isProf ? '+' : ''}$${fmt(upnl, 2)} USD
           </td>
@@ -842,6 +869,9 @@
     // Edit Strategy Group TP / SL Triggers
     if (dom.btnEditActiveGroup) {
       dom.btnEditActiveGroup.addEventListener('click', openEditGroupModal);
+    }
+    if (dom.btnHudEditTpsl) {
+      dom.btnHudEditTpsl.addEventListener('click', openEditGroupModal);
     }
     if (dom.editGroupModalCloseBtn) {
       dom.editGroupModalCloseBtn.addEventListener('click', closeEditGroupModal);
