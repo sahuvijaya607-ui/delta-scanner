@@ -116,6 +116,8 @@
     editGroupNameInput: document.getElementById('editGroupNameInput'),
     editGroupTargetInput: document.getElementById('editGroupTargetInput'),
     editGroupStopLossInput: document.getElementById('editGroupStopLossInput'),
+    editGroupCallSlInput: document.getElementById('editGroupCallSlInput'),
+    editGroupPutSlInput: document.getElementById('editGroupPutSlInput'),
 
     // High-Visibility HUD Command Center
     hudTpVal: document.getElementById('hud-tp-val'),
@@ -429,7 +431,7 @@
             <span class="px-1 py-0.2 bg-terminal-amber/10 border border-terminal-amber/30 text-[9px] text-terminal-amber block font-bold">2.0x NATIVE ARMED</span>
           </td>
           <td class="py-space-sm px-space-md text-center">
-            <div class="font-bold text-execution-emerald font-data-md">+$30.50 USD</div>
+            <div class="font-bold text-execution-emerald font-data-md">+$${fmt(state.groups && state.groups[0] && state.groups[0].target ? state.groups[0].target : 30.5, 2)} USD</div>
             <span class="text-[9px] text-on-surface-variant block font-bold">20% CREDIT AUTO</span>
           </td>
           <td class="py-space-sm px-space-md text-right font-bold font-data-md ${isProf ? 'text-execution-emerald' : 'text-critical-crimson'}">
@@ -667,15 +669,13 @@
     if (dom.groupStopLossInput) dom.groupStopLossInput.value = '30.00';
 
     if (dom.groupModal) {
-      dom.groupModal.classList.remove('hidden');
-      dom.groupModal.classList.add('flex');
+      dom.groupModal.style.display = 'flex';
     }
   }
 
   function closeGroupModal() {
     if (dom.groupModal) {
-      dom.groupModal.classList.add('hidden');
-      dom.groupModal.classList.remove('flex');
+      dom.groupModal.style.display = 'none';
     }
   }
 
@@ -730,49 +730,70 @@
   }
 
   function openEditGroupModal() {
-    const activeGroup = (state.groups || []).find(g => g.status === 'MONITORING') || (state.groups || [])[0];
-    if (!activeGroup) {
-      alert('No active strategy group found to edit.');
-      return;
-    }
+    let activeGroup = (state.groups || []).find(g => g.status === 'MONITORING') || (state.groups || [])[0];
+    const callLeg = (state.positions || []).find(p => (p.symbol || '').startsWith('C-')) || {};
+    const putLeg = (state.positions || []).find(p => (p.symbol || '').startsWith('P-')) || {};
+    const cEntry = parseFloat(callLeg.entry_price || 504);
+    const pEntry = parseFloat(putLeg.entry_price || 1021);
+    const lots = Math.abs(parseInt(callLeg.size || 100));
+    const totalCredit = (cEntry + pEntry) * (lots * 0.001);
 
-    if (dom.editGroupIdInput) dom.editGroupIdInput.value = activeGroup.id || '';
-    if (dom.editGroupNameInput) dom.editGroupNameInput.value = activeGroup.name || 'BTC Strategy';
-    if (dom.editGroupTargetInput) dom.editGroupTargetInput.value = activeGroup.target || 30.50;
-    if (dom.editGroupStopLossInput) dom.editGroupStopLossInput.value = activeGroup.stopLoss || 61.00;
+    const defaultTarget = (activeGroup && typeof activeGroup.target === 'number') ? activeGroup.target : (totalCredit * 0.20 || 30.50);
+    const defaultSl = (activeGroup && typeof activeGroup.stopLoss === 'number') ? activeGroup.stopLoss : (defaultTarget * 2.0 || 61.00);
+    const defaultCallSl = (activeGroup && activeGroup.native_sl_call) ? activeGroup.native_sl_call : (cEntry * 2.0 || 1008.0);
+    const defaultPutSl = (activeGroup && activeGroup.native_sl_put) ? activeGroup.native_sl_put : (pEntry * 2.0 || 2042.0);
+
+    if (dom.editGroupIdInput) dom.editGroupIdInput.value = activeGroup ? activeGroup.id : `grp_strangle_${Date.now()}`;
+    if (dom.editGroupNameInput) dom.editGroupNameInput.value = activeGroup ? activeGroup.name : `BTC Monthly Strangle (${lots} Lots)`;
+    if (dom.editGroupTargetInput) dom.editGroupTargetInput.value = parseFloat(defaultTarget).toFixed(2);
+    if (dom.editGroupStopLossInput) dom.editGroupStopLossInput.value = parseFloat(defaultSl).toFixed(2);
+    if (dom.editGroupCallSlInput) dom.editGroupCallSlInput.value = parseFloat(defaultCallSl).toFixed(1);
+    if (dom.editGroupPutSlInput) dom.editGroupPutSlInput.value = parseFloat(defaultPutSl).toFixed(1);
 
     if (dom.editGroupModal) {
-      dom.editGroupModal.classList.remove('hidden');
-      dom.editGroupModal.classList.add('flex');
+      dom.editGroupModal.style.display = 'flex';
     }
   }
 
   function closeEditGroupModal() {
     if (dom.editGroupModal) {
-      dom.editGroupModal.classList.add('hidden');
-      dom.editGroupModal.classList.remove('flex');
+      dom.editGroupModal.style.display = 'none';
     }
   }
 
   async function saveEditedStrategyGroup() {
     const targetVal = parseFloat(dom.editGroupTargetInput.value);
     const slVal = parseFloat(dom.editGroupStopLossInput.value);
+    const callSlVal = dom.editGroupCallSlInput ? parseFloat(dom.editGroupCallSlInput.value) : null;
+    const putSlVal = dom.editGroupPutSlInput ? parseFloat(dom.editGroupPutSlInput.value) : null;
+
     if (isNaN(targetVal) || targetVal <= 0 || isNaN(slVal) || slVal <= 0) {
-      alert('Please enter valid positive numbers for Target and Stop-Loss.');
+      alert('Please enter valid positive numbers for Target ($) and Stop-Loss ($).');
       return;
     }
 
-    const activeGroup = (state.groups || []).find(g => g.id === dom.editGroupIdInput.value) || (state.groups || [])[0];
+    let activeGroup = (state.groups || []).find(g => g.id === dom.editGroupIdInput.value) || (state.groups || [])[0];
     if (!activeGroup) {
-      alert('Active strategy group not found.');
-      return;
+      activeGroup = {
+        id: dom.editGroupIdInput.value || `grp_strangle_${Date.now()}`,
+        name: dom.editGroupNameInput.value || 'BTC Monthly Strangle (100 Lots)',
+        strategy_type: 'MONTHLY_STRANGLE',
+        positions: state.positions || [],
+        status: 'MONITORING'
+      };
     }
 
     activeGroup.target = targetVal;
     activeGroup.stopLoss = slVal;
+    if (callSlVal && !isNaN(callSlVal)) activeGroup.native_sl_call = callSlVal;
+    if (putSlVal && !isNaN(putSlVal)) activeGroup.native_sl_put = putSlVal;
 
     try {
-      if (dom.editGroupModalSaveBtn) dom.editGroupModalSaveBtn.disabled = true;
+      if (dom.editGroupModalSaveBtn) {
+        dom.editGroupModalSaveBtn.disabled = true;
+        dom.editGroupModalSaveBtn.textContent = 'SAVING THRESHOLDS...';
+      }
+
       const res = await fetch('/api/strategy-groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -780,12 +801,19 @@
       });
       const data = await res.json();
       closeEditGroupModal();
+
+      state.groups = [activeGroup];
+      renderStrategyHero(state.groups);
       await refreshTelemetry();
-      alert(`Success! Updated Combined Target to +$${targetVal.toFixed(2)} USD and Stop-Loss to -$${slVal.toFixed(2)} USD.`);
+
+      alert(`Success! Updated Combined Target to +$${targetVal.toFixed(2)} USD and Stop-Loss to -$${slVal.toFixed(2)} USD!\nCloud daemon is actively monitoring your new thresholds.`);
     } catch (err) {
       alert('Error updating thresholds: ' + err);
     } finally {
-      if (dom.editGroupModalSaveBtn) dom.editGroupModalSaveBtn.disabled = false;
+      if (dom.editGroupModalSaveBtn) {
+        dom.editGroupModalSaveBtn.disabled = false;
+        dom.editGroupModalSaveBtn.textContent = 'SAVE THRESHOLDS';
+      }
     }
   }
 
@@ -882,6 +910,25 @@
     if (dom.editGroupModalSaveBtn) {
       dom.editGroupModalSaveBtn.addEventListener('click', saveEditedStrategyGroup);
     }
+
+
+    // Close modals on overlay backdrop click or Escape key
+    if (dom.editGroupModal) {
+      dom.editGroupModal.addEventListener('click', (e) => {
+        if (e.target === dom.editGroupModal) closeEditGroupModal();
+      });
+    }
+    if (dom.groupModal) {
+      dom.groupModal.addEventListener('click', (e) => {
+        if (e.target === dom.groupModal) closeGroupModal();
+      });
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeEditGroupModal();
+        closeGroupModal();
+      }
+    });
 
     // D. Emergency Exit All
     if (dom.btnEmergencyExit) {
