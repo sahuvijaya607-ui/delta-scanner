@@ -3647,6 +3647,23 @@ def set_delta_native_bracket_sl(env: str, key: str, secret: str, product_id: int
         client = DeltaRESTClient(env, key, secret)
         sl_float = round(float(stop_loss_price), 1)
         limit_float = round(sl_float * 1.05, 1)
+
+        # 1. Deduplication guard: check if an identical stop order already exists on Delta
+        existing = client.authenticated_request("GET", "/v2/orders", params={"state": "pending"})
+        if isinstance(existing, list):
+            for o in existing:
+                if int(o.get("product_id") or 0) == int(product_id) and o.get("stop_order_type") == "stop_loss_order":
+                    cur_sl = round(float(o.get("stop_price") or 0), 1)
+                    if cur_sl == sl_float:
+                        logger.info("Native SL order already active on Delta: Order #%s | Product %s @ %s", o.get("id"), product_id, sl_float)
+                        return True
+                    else:
+                        try:
+                            client.authenticated_request("DELETE", "/v2/orders", body={"id": int(o.get("id")), "product_id": int(product_id)})
+                            logger.info("Cancelled superseded stop order #%s for product %s", o.get("id"), product_id)
+                        except Exception:
+                            pass
+
         body = {
             "product_id": int(product_id),
             "size": abs(int(size)),
