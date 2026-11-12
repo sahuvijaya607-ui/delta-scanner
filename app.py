@@ -2974,6 +2974,8 @@ def reconcile_open_strangle_positions() -> List[Dict[str, Any]]:
 
                     final_sl = round(min(hard_cap, sl), 2)
 
+                    c_sl = round(c_entry * 2.0, 1)
+                    p_sl = round(p_entry * 2.0, 1)
                     group_id = f"grp_strangle_{int(time.time() * 1000)}"
 
                     reconciled_group = {
@@ -3025,8 +3027,10 @@ def reconcile_open_strangle_positions() -> List[Dict[str, Any]]:
                         "total_credit": total_credit,
 
                         "status": "MONITORING",
-        "native_sl_call": call_sl_price,
-        "native_sl_put": put_sl_price,
+
+                        "native_sl_call": c_sl,
+
+                        "native_sl_put": p_sl,
 
                         "created_at": datetime.now(timezone.utc).isoformat(),
 
@@ -3036,14 +3040,10 @@ def reconcile_open_strangle_positions() -> List[Dict[str, Any]]:
 
                     # Ensure native sleep-safe stop loss is active on Delta Exchange
                     try:
-                        c_sl = round(c_entry * 2.0, 1)
-                        p_sl = round(p_entry * 2.0, 1)
                         c_qty = abs(int(safe_float(c.get("size", 100))))
                         p_qty = abs(int(safe_float(p.get("size", 100))))
                         set_delta_native_bracket_sl(creds["environment"], creds["api_key"], creds["api_secret"], int(c.get("product_id")), c_qty, c_sl)
                         set_delta_native_bracket_sl(creds["environment"], creds["api_key"], creds["api_secret"], int(p.get("product_id")), p_qty, p_sl)
-                        reconciled_group["native_sl_call"] = c_sl
-                        reconciled_group["native_sl_put"] = p_sl
                     except Exception as sl_err:
                         logger.warning("Reconciled group native SL error: %s", sl_err)
 
@@ -4863,7 +4863,6 @@ def api_strangle_scheduler():
 
 
 
-@app.post("/api/strategy/monthly-strangle/set-native-sl")
 @app.get("/api/orders/pending")
 def api_orders_pending():
     """Fetch live pending conditional stop orders from Delta Exchange."""
@@ -4878,6 +4877,7 @@ def api_orders_pending():
         return jsonify(connected=False, orders=[], error=str(exc))
 
 
+@app.post("/api/strategy/monthly-strangle/set-native-sl")
 def api_set_native_sl():
     """Manually trigger or verify native bracket SL injection on Delta Exchange for active strangle positions."""
     state = get_browser_state()
@@ -4901,6 +4901,24 @@ def api_set_native_sl():
             results.append({"product_id": prod_id, "symbol": pos.get("symbol"), "sl_price": sl_price, "success": ok})
             
     return jsonify(ok=True, results=results, message="Native Sleep-Safe Stop Loss updated on Delta Exchange.")
+
+
+@app.get("/api/spot")
+def api_spot():
+    """Fetch live BTC spot index price from Delta Exchange."""
+    state = get_browser_state()
+    try:
+        env = state.get("environment") or "production"
+        client = DeltaRESTClient(env, state.get("api_key") or "", state.get("api_secret") or "")
+        tickers = client.authenticated_request("GET", "/v2/tickers") if state.get("api_key") else None
+        if isinstance(tickers, list):
+            for t in tickers:
+                sp = safe_float(t.get("spot_price"))
+                if sp > 0 and "BTC" in str(t.get("symbol")):
+                    return jsonify(connected=True, spot=sp, symbol=t.get("symbol"))
+    except Exception as exc:
+        logger.debug("api_spot fetch notice: %s", exc)
+    return jsonify(connected=False, spot=72307.7, symbol="BTCUSD")
 
 
 @app.post("/api/strategy/monthly-strangle/save-default-lots")
