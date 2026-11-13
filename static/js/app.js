@@ -6757,7 +6757,7 @@
       if (dom.sellingBannerIcon) dom.sellingBannerIcon.textContent = '🟢';
 
 
-      if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = '🟢 STRANGLE ACTIVE · AGLI ENTRY: 07-NOV @ 00:00 IST:';
+      if (dom.sellingBannerTitle) dom.sellingBannerTitle.textContent = '🟢 STRANGLE ACTIVE · AGLI AUTO ENTRY:';
 
 
       if (dom.sellingBannerDesc) dom.sellingBannerDesc.textContent = `Active trade '${grpName}' chal raha hai (Live MTM: ${formattedMtm}). Agli automated entry: ${nextTimeStr} (${remainingStr}). Current trade exit par automatically trigger hogi.`;
