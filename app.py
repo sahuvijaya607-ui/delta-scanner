@@ -3648,21 +3648,33 @@ def set_delta_native_bracket_sl(env: str, key: str, secret: str, product_id: int
         sl_float = round(float(stop_loss_price), 1)
         limit_float = round(sl_float * 1.05, 1)
 
-        # 1. Deduplication guard: check if an identical stop order already exists on Delta
+        # 1. Deduplication & Cleanup guard: cancel ALL existing stop orders for this product before placing fresh one
         existing = client.authenticated_request("GET", "/v2/orders", params={"state": "pending"})
         if isinstance(existing, list):
+            active_exact_orders = []
             for o in existing:
                 if int(o.get("product_id") or 0) == int(product_id) and o.get("stop_order_type") == "stop_loss_order":
                     cur_sl = round(float(o.get("stop_price") or 0), 1)
                     if cur_sl == sl_float:
-                        logger.info("Native SL order already active on Delta: Order #%s | Product %s @ %s", o.get("id"), product_id, sl_float)
-                        return True
+                        active_exact_orders.append(o)
                     else:
                         try:
                             client.authenticated_request("DELETE", "/v2/orders", body={"id": int(o.get("id")), "product_id": int(product_id)})
                             logger.info("Cancelled superseded stop order #%s for product %s", o.get("id"), product_id)
                         except Exception:
                             pass
+            if len(active_exact_orders) == 1:
+                logger.info("Native SL order already active on Delta: Order #%s | Product %s @ %s", active_exact_orders[0].get("id"), product_id, sl_float)
+                return True
+            elif len(active_exact_orders) > 1:
+                # Cancel extra duplicate orders, keep only the first one!
+                for extra_order in active_exact_orders[1:]:
+                    try:
+                        client.authenticated_request("DELETE", "/v2/orders", body={"id": int(extra_order.get("id")), "product_id": int(product_id)})
+                        logger.info("Cancelled redundant duplicate stop order #%s for product %s", extra_order.get("id"), product_id)
+                    except Exception:
+                        pass
+                return True
 
         body = {
             "product_id": int(product_id),
