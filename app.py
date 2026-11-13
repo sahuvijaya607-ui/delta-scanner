@@ -3155,7 +3155,7 @@ def load_strangle_scheduler() -> Dict[str, Any]:
 
     if not os.path.exists(STRANGLE_SCHEDULER_FILE):
 
-        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True, "current_month": "", "month_trade_count": 0}
+        return {"enabled": True, "lots": 100, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True, "current_month": "", "month_trade_count": 0}
 
     try:
 
@@ -3171,11 +3171,11 @@ def load_strangle_scheduler() -> Dict[str, Any]:
 
                 return data
 
-            return {"enabled": True, "lots": 50, "selling_enabled": True}
+            return {"enabled": True, "lots": 100, "selling_enabled": True}
 
     except Exception:
 
-        return {"enabled": True, "lots": 50, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True, "current_month": "", "month_trade_count": 0}
+        return {"enabled": True, "lots": 100, "last_executed_date": "", "trade_cycle": 1, "selling_enabled": True, "current_month": "", "month_trade_count": 0}
 
 
 
