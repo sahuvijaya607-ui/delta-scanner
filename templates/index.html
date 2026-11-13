@@ -1,823 +1,1796 @@
-<!DOCTYPE html>
+<!doctype html>
 
-<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Space+Mono:ital,wght@0,400;0,700;1,400&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-error":"#690005","surface-bright":"#353943","on-secondary-fixed-variant":"#004e5c","outline":"#a08e7a","surface-tint":"#ffb95f","on-tertiary-fixed":"#002113","border-prominent":"#334155","critical-crimson":"#ef4444","surface-container-high":"#262a34","surface-base":"#0a0e17","on-background":"#dfe2ef","tertiary-container":"#30c88f","surface-container-low":"#181b25","on-primary-fixed-variant":"#653e00","error-container":"#93000a","tertiary":"#56e5a9","on-secondary-fixed":"#001f26","tertiary-fixed-dim":"#4edea3","surface":"#0f131c","border-subtle":"#1e293b","on-tertiary":"#003824","primary-container":"#f59e0b","surface-elevated":"#161b26","secondary-fixed-dim":"#4cd7f6","surface-panel":"#0f131c","outline-variant":"#534434","execution-emerald":"#10b981","surface-container":"#1c1f29","on-secondary":"#003640","background":"#0f131c","on-surface-variant":"#d8c3ad","surface-variant":"#31353f","secondary":"#4cd7f6","secondary-fixed":"#acedff","error":"#ffb4ab","on-primary-container":"#613b00","primary":"#ffc174","on-primary-fixed":"#2a1700","tertiary-fixed":"#6ffbbe","telemetry-cyan":"#06b6d4","on-surface":"#dfe2ef","surface-container-lowest":"#0a0e17","terminal-amber":"#f59e0b","on-primary":"#472a00","primary-fixed-dim":"#ffb95f","primary-fixed":"#ffddb8","secondary-container":"#03b5d3","surface-container-highest":"#31353f","inverse-on-surface":"#2c303a","on-tertiary-container":"#004e34","on-secondary-container":"#00424e","inverse-surface":"#dfe2ef","surface-dim":"#0f131c","on-tertiary-fixed-variant":"#005236","inverse-primary":"#855300","on-error-container":"#ffdad6"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-md":"0.5rem","space-xs":"0.125rem","space-sm":"0.25rem","space-lg":"0.75rem","space-xl":"1rem","margin":"0.75rem","margin-desktop":"1rem","gutter-desktop":"0.75rem","gutter":"0.5rem"},fontFamily:{"label-code":["Space Mono"],"data-md":["Space Mono"],"body-md":["Space Mono"],"headline-sm":["Space Grotesk"],"body-sm":["Space Mono"],"display-lg":["Space Grotesk"],"headline-md":["Space Grotesk"],"data-lg":["Space Mono"],"display-lg-mobile":["Space Grotesk"]},fontSize:{"label-code":["10px",{"lineHeight":"14px","letterSpacing":"0.08em","fontWeight":"700"}],"data-md":["13px",{"lineHeight":"18px","fontWeight":"700"}],"body-md":["13px",{"lineHeight":"20px","fontWeight":"400"}],"headline-sm":["16px",{"lineHeight":"24px","letterSpacing":"-0.01em","fontWeight":"600"}],"body-sm":["11px",{"lineHeight":"16px","fontWeight":"400"}],"display-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.03em","fontWeight":"700"}],"headline-md":["20px",{"lineHeight":"28px","letterSpacing":"-0.02em","fontWeight":"600"}],"data-lg":["18px",{"lineHeight":"24px","letterSpacing":"-0.02em","fontWeight":"700"}],"display-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.02em","fontWeight":"700"}]}}}}</script></head><body class="bg-surface-base font-body-md text-on-surface antialiased select-none"><header class="fixed top-0 left-0 right-0 h-14 bg-surface-container-lowest z-50 px-margin-desktop flex items-center justify-between border-b border-border-subtle"><div class="flex items-center gap-space-lg"><img alt="Delta Quant Engine Logo" class="h-7 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ALJJyrDxqtDldZQXdGK6--Erc0z036O_y5Ofkdj1NZWRWkBFohlIHXlJ7HHQrCUWVc4_muSnAg6ylzqAuZDSM7zcvvJTF_EFOFnTPi5mfVCLxna-zIjlThUsFreKRwV5Tj_sO1mYYU480MIOWALUCiZJgiBpjI0bjW08aRyVygH8KxJBquikbMrleul9AWeRwA8h93hrS9zcevqwWxmNqixuNVs7b_bPKGU99A8tl2rM_7g"/><div class="flex items-center gap-space-sm pl-space-sm border-l border-border-subtle"><span class="font-headline-sm text-headline-sm uppercase tracking-wider text-on-surface">DELTA OPTION SCANNER</span><span class="font-label-code text-label-code text-terminal-amber px-space-xs py-space-xs bg-terminal-amber/10 border border-terminal-amber/40">2.0 QUANT ENGINE</span><div class="flex items-center gap-space-xs px-space-sm py-space-xs"><span class="w-2 h-2 rounded-full bg-execution-emerald animate-pulse"></span><span class="font-label-code text-label-code text-execution-emerald uppercase">LIVE FEED</span></div></div></div><div class="hidden xl:flex items-center gap-space-md"><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container-low border border-border-subtle"><span class="w-1.5 h-1.5 rounded-full bg-execution-emerald animate-ping"></span><span class="font-label-code text-label-code text-on-surface-variant uppercase">24/7 DAEMON:</span><span id="stat-daemon-status" class="font-data-md text-data-md text-execution-emerald uppercase">ONLINE</span><span id="stat-daemon-lag" class="font-body-sm text-body-sm text-on-surface-variant">(12ms)</span></div><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container-low border border-border-subtle"><span class="material-symbols-outlined text-[14px] text-terminal-amber">shield</span><span class="font-label-code text-label-code text-on-surface-variant uppercase">HARD SL:</span><span id="stat-hard-sl-badge" class="font-data-md text-data-md text-terminal-amber uppercase">ENGAGED</span></div><div class="flex items-center gap-space-sm px-space-md py-space-xs bg-surface-container-low border border-border-subtle"><span class="material-symbols-outlined text-[14px] text-telemetry-cyan">schedule</span><span class="font-label-code text-label-code text-on-surface-variant uppercase">NEXT ENTRY:</span><span id="stat-next-sat" class="font-data-md text-data-md text-telemetry-cyan uppercase">SAT @ 00:00:00 IST</span><span id="stat-countdown" class="font-body-sm text-body-sm text-on-surface-variant">[--]</span></div><div class="flex items-center gap-space-md px-space-md py-space-xs bg-surface-container border border-border-prominent"><div class="flex items-baseline gap-space-xs"><span class="font-label-code text-label-code text-on-surface-variant uppercase">EQ:</span><span id="stat-equity" class="font-data-md text-data-md text-on-surface">$1,012.77</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-baseline gap-space-xs"><span class="font-label-code text-label-code text-on-surface-variant uppercase">FREE:</span><span id="stat-available" class="font-data-md text-data-md text-execution-emerald">$657.23</span></div><div class="h-3 w-px bg-border-subtle"></div><div class="flex items-baseline gap-space-xs"><span class="font-label-code text-label-code text-on-surface-variant uppercase">BLOCKED:</span><span id="stat-blocked" class="font-data-md text-data-md text-terminal-amber">$355.54</span></div></div></div><div class="flex items-center gap-space-md"><button id="btn-emergency-exit" class="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container-lowest border border-critical-crimson text-critical-crimson hover:bg-critical-crimson hover:text-white transition-all cursor-pointer" type="button"><span class="material-symbols-outlined text-[16px]">crisis_alert</span><span class="font-label-code text-label-code uppercase tracking-wider">EMERGENCY EXIT ALL</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><aside class="fixed left-0 top-14 bottom-0 w-60 bg-surface-container-lowest z-40 flex flex-col justify-between border-r border-border-subtle"><div class="py-space-md"><div class="px-space-md pb-space-sm mb-space-sm border-b border-border-subtle flex items-center justify-between"><span class="font-label-code text-label-code text-on-surface-variant uppercase">QUANT TERMINAL NAVIGATION</span><span class="font-label-code text-label-code text-telemetry-cyan">v2.0.4</span></div><nav class="flex flex-col gap-space-xs px-space-xs" data-active-classes="bg-surface-elevated text-terminal-amber font-bold border-l-2 border-terminal-amber"><a aria-current="page" class="flex items-center gap-space-md px-space-md py-space-sm uppercase transition-colors bg-surface-elevated text-terminal-amber font-bold border-l-2 border-terminal-amber" data-path="option-scanner-terminal" href="#"><span class="material-symbols-outlined text-[16px]">candlestick_chart</span>Options Scanner</a><a class="flex items-center gap-space-md px-space-md py-space-sm font-label-code text-label-code uppercase text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="volatility-surface" href="#"><span class="material-symbols-outlined text-[16px]">waterfall_chart</span>IV Matrix Surface</a><a class="flex items-center gap-space-md px-space-md py-space-sm font-label-code text-label-code uppercase text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="algorithmic-execution" href="#"><span class="material-symbols-outlined text-[16px]">smart_toy</span>Algo Engines</a><a class="flex items-center gap-space-md px-space-md py-space-sm font-label-code text-label-code uppercase text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="risk-containment" href="#"><span class="material-symbols-outlined text-[16px]">shield_locked</span>Risk &amp; Greeks</a><a class="flex items-center gap-space-md px-space-md py-space-sm font-label-code text-label-code uppercase text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="delta-ledger" href="#"><span class="material-symbols-outlined text-[16px]">receipt_long</span>Delta Fill Ledger</a><a class="flex items-center gap-space-md px-space-md py-space-sm font-label-code text-label-code uppercase text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="telemetry-daemon" href="#"><span class="material-symbols-outlined text-[16px]">terminal</span>Daemon Config</a></nav></div><div class="p-space-md border-t border-border-subtle bg-surface-container-low"><div class="flex items-center justify-between text-on-surface-variant font-label-code text-label-code mb-space-xs"><span>ENGINE CORE:</span><span class="text-execution-emerald">DELTA_WS_SYNCED</span></div><div class="w-full bg-surface-container-high h-1"><div class="bg-execution-emerald h-1 w-full"></div></div><div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm mt-space-sm"><span>SERVER TICK</span><span class="text-on-surface font-data-md text-data-md">100ms</span></div></div></aside><div class="pl-60"><main class="relative pt-14 min-h-screen bg-surface-base px-margin-desktop py-space-md"><div class="flex flex-col w-full gap-space-md">
-<!-- TOP CONTEXT BAR: Breadcrumbs & Institutional Live Telemetry Strip -->
-<div class="flex flex-col xl:flex-row xl:items-center xl:justify-between bg-surface-container-lowest p-space-md border border-border-subtle gap-space-md">
-<!-- Hierarchy Path -->
-<div class="flex items-center gap-space-sm flex-wrap">
-<div class="flex items-center gap-space-xs text-on-surface-variant font-label-code text-label-code uppercase tracking-wider">
-<span class="material-symbols-outlined text-[15px] text-telemetry-cyan">terminal</span>
-<span>QUANT ENGINE</span>
-<span class="text-border-prominent">/</span>
-<span>STRANGLE AUTO-PILOT</span>
-<span class="text-border-prominent">/</span>
-</div>
-<span class="font-headline-sm text-headline-sm text-primary uppercase font-bold tracking-tight">BTC-USDT MONTHLY STRANGLE</span>
-<span class="bg-execution-emerald/10 text-execution-emerald border border-execution-emerald/40 font-label-code text-label-code px-space-sm py-space-xs uppercase tracking-widest flex items-center gap-space-xs">
-<span class="w-1.5 h-1.5 rounded-full bg-execution-emerald animate-ping"></span>
-        STRATEGY ARMED
-      </span>
-</div>
-<!-- Live Telemetry Stream Ticker -->
-<div class="flex items-center gap-space-sm flex-wrap xl:justify-end">
-<div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-low border border-border-subtle">
-<span class="font-label-code text-label-code text-on-surface-variant">SPOT:</span>
-<span id="ribbon-spot-price" class="font-data-md text-data-md text-telemetry-cyan font-bold tabular-nums">BTC/USDT $75,800.00</span>
-<span id="ribbon-spot-change" class="font-label-code text-label-code text-execution-emerald font-bold">+0.00%</span>
-</div>
-<div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-low border border-border-subtle">
-<span class="font-label-code text-label-code text-on-surface-variant">IV RANK:</span>
-<span class="font-data-md text-data-md text-terminal-amber font-bold">48.2%</span>
-</div>
-<div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-low border border-border-subtle">
-<span class="font-label-code text-label-code text-on-surface-variant">VEGA:</span>
-<span class="font-data-md text-data-md text-critical-crimson font-bold">-14.20</span>
-</div>
-<div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-low border border-border-subtle">
-<span class="font-label-code text-label-code text-on-surface-variant">THETA (1D):</span>
-<span class="font-data-md text-data-md text-execution-emerald font-bold">+$4.82/D</span>
-</div>
-<div class="flex items-center gap-space-xs px-space-sm py-space-xs bg-surface-container-low border border-border-prominent">
-<span class="font-label-code text-label-code text-on-surface-variant">DELTA BIAS:</span>
-<span class="font-data-md text-data-md text-execution-emerald font-bold">+0.02</span>
-<span class="font-label-code text-label-code text-on-surface-variant uppercase">[NEUTRAL]</span>
-</div>
-</div>
-</div>
-<!-- MAIN OPERATIONAL GRID (Hero Safe-Zone Corridor + Quantitative Scheduler) -->
-<div class="grid grid-cols-1 2xl:grid-cols-12 gap-space-md">
-<!-- LEFT / HERO CARD: Safe-Zone Tunnel & Live Risk Gauge (8 Cols) -->
-<div class="2xl:col-span-8 flex flex-col bg-surface-container-lowest border border-border-subtle">
-<!-- Strategy Header Banner -->
-<div class="flex flex-col md:flex-row md:items-center justify-between p-space-md border-b border-border-subtle bg-surface-container-low gap-space-sm">
-<div class="flex items-center gap-space-md">
-<div class="w-2.5 h-10 bg-terminal-amber"></div>
-<div>
-<div class="flex items-center gap-space-sm">
-<h2 id="hero-strategy-title" class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">BTC Monthly Strangle (100 Lots)</h2>
-<span class="inline-flex items-center gap-space-xs px-space-sm py-space-xs bg-execution-emerald/10 border border-execution-emerald/40 text-execution-emerald font-label-code text-label-code uppercase">
-<span class="w-1.5 h-1.5 bg-execution-emerald rounded-full animate-pulse"></span>
-                MONITORING
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Delta Exchange · Professional Option Scanner</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ version }}">
+
+</head>
+
+<body>
+
+  <!-- Header / Navigation Bar -->
+
+  <header class="topbar">
+
+    <div class="brand">
+
+      <div class="brand-logo">
+
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+
+          <polygon points="12 2 2 22 22 22 12 2"></polygon>
+
+        </svg>
+
+      </div>
+
+      <div class="brand-text">
+
+        <div class="brand-title">DELTA <span>TERMINAL</span></div>
+
+        <div class="brand-sub">INSTITUTIONAL OPTION SCANNER</div>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- Underlying Asset Switcher -->
+
+    <div class="asset-selector" role="tablist">
+
+      <button class="asset-tab active" data-asset="BTC" id="tabBTC">
+
+        <span class="crypto-icon">₿</span>
+
+        <span class="asset-name">BTC</span>
+
+      </button>
+
+      <button class="asset-tab" data-asset="ETH" id="tabETH">
+
+        <span class="crypto-icon">Ξ</span>
+
+        <span class="asset-name">ETH</span>
+
+      </button>
+
+      <button class="asset-tab" data-asset="XAUT" id="tabXAUT">
+
+        <span class="crypto-icon">🟡</span>
+
+        <span class="asset-name">XAUT</span>
+
+      </button>
+
+    </div>
+
+
+
+    <!-- Top Right Status Indicators -->
+
+    <div class="header-right">
+
+      <button class="audio-toggle" id="audioToggle" title="Toggle audio chime">
+
+        <span id="audioIcon">🔊</span>
+
+        <span id="audioText">SOUND ON</span>
+
+      </button>
+
+
+
+      <div class="status-pill wallet-pill" id="walletPill" style="display: none;">
+
+        <span class="status-beacon green"></span>
+
+        <span id="walletLabel">WALLET: $0.00</span>
+
+      </div>
+
+
+
+      <div class="status-pill" id="connPill">
+
+        <span class="status-beacon amber" id="connBeacon"></span>
+
+        <span id="connLabel">PUBLIC DATA MODE</span>
+
+      </div>
+
+
+
+      <div class="clock-display">
+
+        <span class="clock-icon">🕒</span>
+
+        <span id="clockText">--:--:-- IST</span>
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+
+  <!-- Risk Disclosure Banner -->
+
+  <section class="risk-banner">
+
+    <div class="risk-badge">
+
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+
+      </svg>
+
+      RISK WARNING
+
+    </div>
+
+    <div class="risk-text">
+
+      Options are complex derivative contracts involving substantial financial risk of loss. Public scanner data is indicative only. Order submissions create real exchange financial liabilities. Always verify side, contracts, entry price, target, and stop-loss brackets before submitting live trades.
+
+    </div>
+
+  </section>
+
+
+
+  <!-- Main Dashboard Container -->
+
+  <main class="dashboard-container">
+
+
+
+    <!-- Control & Connection Toolbar -->
+
+    <section class="control-bar">
+
+      <!-- Credentials Panel -->
+
+      <div class="auth-strip">
+
+        <div class="input-group">
+
+          <label for="envSelect">ENVIRONMENT</label>
+
+          <select id="envSelect">
+
+            <option value="india">India · Production</option>
+
+            <option value="india_testnet">India · Testnet</option>
+
+            <option value="global">Global · Production</option>
+
+            <option value="global_testnet">Global · Testnet</option>
+
+          </select>
+
+        </div>
+
+        <div class="input-group">
+
+          <label for="apiKey">API KEY</label>
+
+          <input type="text" id="apiKey" placeholder="Optional for public scan" autocomplete="off" spellcheck="false">
+
+        </div>
+
+        <div class="input-group">
+
+          <label for="apiSecret">API SECRET</label>
+
+          <input type="password" id="apiSecret" placeholder="Held in RAM only" autocomplete="off">
+
+        </div>
+
+        <div class="auth-buttons">
+
+          <button class="btn btn-secondary" id="saveConnBtn">
+
+            <span class="btn-icon">💾</span> Save Credentials
+
+          </button>
+
+          <button class="btn btn-dark" id="clearConnBtn" title="Clear in-memory credentials">
+
+            <span class="btn-icon">✕</span> Clear
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- Scanner Actions -->
+
+      <div class="scanner-strip">
+
+        <div class="input-group expiry-group">
+
+          <label for="expirySelect">EXPIRY DATE</label>
+
+          <select id="expirySelect">
+
+            <option value="">Loading expiries…</option>
+
+          </select>
+
+        </div>
+
+
+
+        <div class="scanner-actions">
+
+          <button class="btn btn-start" id="startScanBtn">
+
+            <span class="btn-icon">▶</span> START SCANNER
+
+          </button>
+
+          <button class="btn btn-stop" id="stopScanBtn" disabled>
+
+            <span class="btn-icon">■</span> STOP SCANNER
+
+          </button>
+
+        </div>
+
+
+
+        <div class="feed-indicator">
+
+          <span class="status-beacon muted" id="feedBeacon"></span>
+
+          <div class="feed-labels">
+
+            <span class="feed-title" id="feedTitle">SCANNER IDLE</span>
+
+            <span class="feed-desc" id="feedDesc">Press Start to scan live data</span>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- Key Market Metrics Bar -->
+
+    <section class="metrics-grid" aria-label="Option market summary">
+
+      <div class="metric-card spot-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">UNDERLYING SPOT</span>
+
+          <span class="metric-tag" id="spotTag">INDEX</span>
+
+        </div>
+
+        <div class="metric-value font-mono" id="valSpot">—</div>
+
+        <div class="metric-footer" id="valSpotDesc">Awaiting feed</div>
+
+      </div>
+
+
+
+      <div class="metric-card atm-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">ATM STRIKE</span>
+
+          <span class="metric-tag">AT-THE-MONEY</span>
+
+        </div>
+
+        <div class="metric-value font-mono" id="valAtm">—</div>
+
+        <div class="metric-footer" id="valAtmDistance">Closest listed contract</div>
+
+      </div>
+
+
+
+      <div class="metric-card maxpain-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">MAX PAIN STRIKE</span>
+
+          <span class="metric-tag maxpain-tag">EXPIRY PAIN</span>
+
+        </div>
+
+        <div class="metric-value font-mono maxpain-accent" id="valMaxPain">—</div>
+
+        <div class="metric-footer" id="valMaxPainDiff">Lowest writer payout</div>
+
+      </div>
+
+
+
+      <div class="metric-card pcr-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">PCR (OI RATIO)</span>
+
+          <span class="metric-sentiment" id="pcrSentiment">—</span>
+
+        </div>
+
+        <div class="metric-value font-mono" id="valPcr">—</div>
+
+        <div class="metric-footer">Put OI ÷ Call OI</div>
+
+      </div>
+
+
+
+      <div class="metric-card call-oi-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">CALL OPEN INTEREST</span>
+
+          <span class="metric-tag call-tag">TOTAL CE</span>
+
+        </div>
+
+        <div class="metric-value font-mono call-accent" id="valCallOi">—</div>
+
+        <div class="metric-footer" id="valCallVol">Vol: —</div>
+
+      </div>
+
+
+
+      <div class="metric-card put-oi-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">PUT OPEN INTEREST</span>
+
+          <span class="metric-tag put-tag">TOTAL PE</span>
+
+        </div>
+
+        <div class="metric-value font-mono put-accent" id="valPutOi">—</div>
+
+        <div class="metric-footer" id="valPutVol">Vol: —</div>
+
+      </div>
+
+
+
+      <div class="metric-card refresh-card">
+
+        <div class="metric-header">
+
+          <span class="metric-title">SCAN REFRESH</span>
+
+          <span class="metric-badge" id="rateBadge">1 SEC</span>
+
+        </div>
+
+        <div class="metric-value font-mono" id="valLastUpdate">—</div>
+
+        <div class="metric-footer" id="valUpdateCount">0 cycles recorded</div>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- Option Chain Table Section -->
+
+    <section class="chain-section">
+
+      <div class="chain-header">
+
+        <div class="chain-title-box">
+
+          <h2 class="chain-title" id="chainTitle">BTC OPTION CHAIN</h2>
+
+          <div class="chain-meta" id="chainMeta">Select an expiry and press Start Scanner</div>
+
+        </div>
+
+
+
+        <!-- Chain Header Controls: Strike Filter, Greeks View Toggle, CSV Export -->
+
+        <div class="chain-controls-bar">
+
+          <div class="filter-item">
+
+            <label for="strikeFilter">FILTER:</label>
+
+            <select id="strikeFilter" class="compact-select">
+
+              <option value="all">All Strikes</option>
+
+              <option value="5">±5 Strikes (ATM)</option>
+
+              <option value="10" selected>±10 Strikes (ATM)</option>
+
+              <option value="15">±15 Strikes (ATM)</option>
+
+            </select>
+
+          </div>
+
+
+
+          <button class="btn btn-dark btn-toggle-greeks" id="greeksToggleBtn" title="Toggle Greeks View (Delta, Theta, Gamma, Vega)">
+
+            <span class="btn-icon">🔬</span> <span id="greeksBtnText">SHOW GREEKS</span>
+
+          </button>
+
+
+
+          <button class="btn btn-dark btn-export-csv" id="exportCsvBtn" title="Export Option Chain to CSV">
+
+            <span class="btn-icon">📥</span> EXPORT CSV
+
+          </button>
+
+        </div>
+
+
+
+        <div class="chain-legend">
+
+          <span class="legend-item"><span class="legend-swatch ce-swatch"></span> CALLS (CE)</span>
+
+          <span class="legend-item"><span class="legend-swatch atm-swatch"></span> ATM STRIKE</span>
+
+          <span class="legend-item"><span class="legend-swatch maxpain-swatch"></span> MAX PAIN</span>
+
+          <span class="legend-item"><span class="legend-swatch pe-swatch"></span> PUTS (PE)</span>
+
+        </div>
+
+      </div>
+
+
+
+      <!-- Responsive Table Container -->
+
+      <div class="table-container" id="chainTableContainer">
+
+        <table class="chain-table" id="chainTable">
+
+          <thead>
+
+            <tr class="table-super-header">
+
+              <th colspan="6" class="th-calls" id="thCallsHeader">CALL OPTIONS (CE)</th>
+
+              <th class="th-strike">STRIKE</th>
+
+              <th colspan="6" class="th-puts" id="thPutsHeader">PUT OPTIONS (PE)</th>
+
+            </tr>
+
+            <tr class="table-column-headers" id="tableColumnHeaders">
+
+              <!-- CALLS COLUMNS -->
+
+              <th class="col-oi" title="Open Interest">OI</th>
+
+              <th class="col-vol" title="Trading Volume">VOL</th>
+
+              <th class="col-iv" title="Implied Volatility">IV %</th>
+
+              <th class="col-bid" title="Best Bid Price">BID</th>
+
+              <th class="col-ask" title="Best Ask Price">ASK</th>
+
+              <th class="col-last-act" title="Last Traded Price & Action Buttons">LAST / ACTION</th>
+
+
+
+              <!-- STRIKE COLUMN -->
+
+              <th class="col-strike" title="Option Strike Price">STRIKE</th>
+
+
+
+              <!-- PUTS COLUMNS -->
+
+              <th class="col-last-act" title="Last Traded Price & Action Buttons">LAST / ACTION</th>
+
+              <th class="col-bid" title="Best Bid Price">BID</th>
+
+              <th class="col-ask" title="Best Ask Price">ASK</th>
+
+              <th class="col-iv" title="Implied Volatility">IV %</th>
+
+              <th class="col-vol" title="Trading Volume">VOL</th>
+
+              <th class="col-oi" title="Open Interest">OI</th>
+
+          </thead>
+
+          <tbody id="chainBody">
+
+            <tr class="empty-row">
+
+              <td colspan="13" class="empty-cell">
+
+                <div class="empty-state">
+
+                  <div class="empty-icon">⚡</div>
+
+                  <div class="empty-title">Scanner is currently paused</div>
+
+                  <div class="empty-sub">Click <strong>Start Scanner</strong> above to stream live Delta Exchange options data.</div>
+
+                </div>
+
+              </td>
+
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+
+
+    <!-- Lower Execution & Position Management Grid -->
+
+    <section class="execution-grid">
+
+
+
+      <!-- Panel 1: Live Order Ticket -->
+
+      <article class="panel order-ticket-panel">
+
+        <div class="panel-header">
+
+          <div class="panel-title-box">
+
+            <span class="panel-icon">📝</span>
+
+            <h3 class="panel-title">LIVE ORDER TICKET</h3>
+
+          </div>
+
+          <span class="lock-pill" id="ticketLockPill">LOCKED</span>
+
+        </div>
+
+
+
+        <div class="ticket-body">
+
+          <!-- Selected Contract Display -->
+
+          <div class="selected-contract-banner" id="contractBanner">
+
+            <div class="contract-main">
+
+              <span class="contract-symbol font-mono" id="ticketSymbol">NO CONTRACT SELECTED</span>
+
+              <span class="contract-tag" id="ticketTag">—</span>
+
+            </div>
+
+            <div class="contract-quotes font-mono" id="ticketQuotes">
+
+              Click BUY or SELL from any chain row
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Order Form -->
+
+          <div class="form-grid">
+
+            <div class="input-group">
+
+              <label for="orderSide">SIDE</label>
+
+              <select id="orderSide">
+
+                <option value="buy">BUY (Long)</option>
+
+                <option value="sell">SELL (Short)</option>
+
+              </select>
+
+            </div>
+
+
+
+            <div class="input-group">
+
+              <label for="orderType">ORDER TYPE</label>
+
+              <select id="orderType">
+
+                <option value="limit_order">LIMIT ORDER</option>
+
+                <option value="market_order">MARKET ORDER</option>
+
+              </select>
+
+            </div>
+
+
+
+            <div class="input-group">
+
+              <label for="orderQty">QUANTITY (CONTRACTS)</label>
+
+              <input type="number" id="orderQty" min="1" step="1" value="1">
+
+            </div>
+
+
+
+            <div class="input-group" id="priceInputGroup">
+
+              <label for="orderPrice">LIMIT PRICE ($)</label>
+
+              <input type="number" id="orderPrice" min="0" step="any" placeholder="Entry limit price">
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Bracket Protection Dropdown Accordion -->
+
+          <details class="bracket-details" id="bracketDetails">
+
+            <summary class="bracket-summary">
+
+              <span>🎯 OPTIONAL BRACKET (TARGET &amp; STOP-LOSS)</span>
+
+              <span class="bracket-chevron">▼</span>
+
+            </summary>
+
+            <div class="bracket-inputs">
+
+              <div class="input-group">
+
+                <label for="targetPrice">TAKE PROFIT TARGET ($)</label>
+
+                <input type="number" id="targetPrice" min="0" step="any" placeholder="Target price">
+
+              </div>
+
+              <div class="input-group">
+
+                <label for="stopLossPrice">STOP-LOSS TRIGGER ($)</label>
+
+                <input type="number" id="stopLossPrice" min="0" step="any" placeholder="Stop-loss price">
+
+              </div>
+
+            </div>
+
+            <div class="bracket-hint">
+
+              Target and SL create exchange-level brackets that cancel-other upon fill.
+
+            </div>
+
+          </details>
+
+
+
+          <!-- Risk & Live Confirmation Checkbox -->
+
+          <div class="ticket-confirm">
+
+            <label class="checkbox-label">
+
+              <input type="checkbox" id="liveCheckbox">
+
+              <span class="checkbox-text">
+
+                I understand this sends a <strong>LIVE REAL-MONEY ORDER</strong> directly to Delta Exchange.
+
               </span>
-</div>
-<div class="flex items-center gap-space-md text-on-surface-variant font-label-code text-label-code mt-space-xs">
-<span id="hero-strategy-expiry" class="text-telemetry-cyan font-bold">EXPIRY: 25-DEC-2026</span>
-<span class="text-border-prominent">|</span>
-<span id="hero-strategy-dte" class="text-on-surface">42 DTE REMAINING</span>
-<span class="text-border-prominent">|</span>
-<span class="text-terminal-amber">CYCLE ID: STR-202612-BTC01</span>
-</div>
-</div>
-</div>
-<!-- Tactical Fast Control Buttons -->
-<div class="flex items-center gap-space-xs flex-wrap">
-<button class="px-space-md py-space-xs bg-surface-container border border-border-prominent hover:border-telemetry-cyan hover:text-telemetry-cyan text-on-surface font-label-code text-label-code uppercase transition-colors flex items-center gap-space-xs" type="button">
-<span class="material-symbols-outlined text-[14px]">sync_alt</span>
-            ROLL STRANGLE
-          </button>
-<button class="px-space-md py-space-xs bg-surface-container border border-border-prominent hover:border-terminal-amber hover:text-terminal-amber text-on-surface font-label-code text-label-code uppercase transition-colors flex items-center gap-space-xs" type="button">
-<span class="material-symbols-outlined text-[14px]">tune</span>
-            ADJUST WINGS
-          </button>
-<button class="px-space-md py-space-xs bg-surface-container border border-border-prominent hover:border-critical-crimson hover:text-critical-crimson text-on-surface font-label-code text-label-code uppercase transition-colors flex items-center gap-space-xs" type="button">
-<span class="material-symbols-outlined text-[14px]">bolt</span>
-            MANUAL HEDGE
-          </button>
-</div>
-</div>
-<!-- VISUAL SAFE-ZONE TUNNEL (Algorithmic Corridor Visualization) -->
-<div class="p-space-lg bg-surface border-b border-border-subtle flex flex-col gap-space-md">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-space-sm">
-<span class="material-symbols-outlined text-telemetry-cyan text-[16px]">radar</span>
-<span class="font-headline-sm text-headline-sm uppercase text-on-surface">Corridor Volatility Tunnel</span>
-</div>
-<div class="flex items-center gap-space-md font-label-code text-label-code">
-<span class="text-on-surface-variant">SAFE BUFFER: <span id="gauge-safe-buffer-text" class="text-execution-emerald font-bold">$26,000.00 (34.30% RANGE)</span></span>
-<span class="text-border-prominent">|</span>
-<span class="text-on-surface-variant">MODEL: <span class="text-telemetry-cyan">BTM-STOCH-VOL-2.4</span></span>
-</div>
-</div>
-<!-- Dynamic Visual Gauge -->
-<div class="relative w-full bg-surface-container-lowest border border-border-subtle pt-8 pb-10 px-4 overflow-hidden">
-<!-- Background Hash Ticks (Every 2k buffer representation) -->
-<div class="absolute inset-0 opacity-15 pointer-events-none flex justify-between px-10">
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-<div class="h-full w-px bg-border-prominent"></div>
-</div>
-<!-- Corridor Horizon Bar (Continuous multi-zone rail) -->
-<div class="relative h-12 w-full flex items-center">
-<!-- Left Red Threat Zone (Put Danger Zone below $66,000) -->
-<div class="relative h-7 w-[20%] bg-critical-crimson/20 border-y border-l border-critical-crimson/60 flex items-center justify-start pl-2">
-<span class="font-label-code text-label-code text-critical-crimson font-bold tracking-tighter uppercase">DELTA PENETRATION &lt; 66K</span>
-<div class="absolute inset-0 bg-repeating-linear-gradient-[45deg,transparent,transparent_4px,rgba(239,68,68,0.15)_4px,rgba(239,68,68,0.15)_8px]"></div>
-</div>
-<!-- Strike Line: Short Put $66,000 Marker -->
-<div class="relative z-10 w-0 h-12 border-l-2 border-critical-crimson flex flex-col items-center justify-center">
-<div class="absolute -top-7 whitespace-nowrap bg-surface-container-high border border-critical-crimson px-space-xs py-0.5 text-critical-crimson font-label-code text-label-code">
-                SHORT PUT <span id="gauge-put-strike">$66,000</span>
-              </div>
-<div class="absolute -bottom-8 whitespace-nowrap text-center">
-<span id="gauge-put-otm" class="block font-label-code text-label-code text-critical-crimson font-bold">-12.93% OTM</span>
-<span class="block font-label-code text-[9px] text-on-surface-variant font-bold">Δ -0.14</span>
-</div>
-</div>
-<!-- Central Emerald Safe Corridor -->
-<div class="relative h-7 flex-1 bg-gradient-to-r from-execution-emerald/15 via-execution-emerald/25 to-execution-emerald/15 border-y border-execution-emerald/50 flex items-center justify-between px-space-md">
-<span class="font-label-code text-[10px] text-execution-emerald/80 tracking-widest uppercase">← THETA HARVEST ZONE →</span>
-<span class="font-label-code text-[10px] text-execution-emerald font-bold tracking-wider uppercase">EXTRINSIC VALUE DECAY OPTIMAL</span>
-<span class="font-label-code text-[10px] text-execution-emerald/80 tracking-widest uppercase">← DELTA BALANCED →</span>
-</div>
-<!-- Strike Line: Short Call $92,000 Marker -->
-<div class="relative z-10 w-0 h-12 border-r-2 border-critical-crimson flex flex-col items-center justify-center">
-<div class="absolute -top-7 whitespace-nowrap bg-surface-container-high border border-critical-crimson px-space-xs py-0.5 text-critical-crimson font-label-code text-label-code">
-                SHORT CALL <span id="gauge-call-strike">$92,000</span>
-              </div>
-<div class="absolute -bottom-8 whitespace-nowrap text-center">
-<span id="gauge-call-otm" class="block font-label-code text-label-code text-critical-crimson font-bold">+21.37% OTM</span>
-<span class="block font-label-code text-[9px] text-on-surface-variant font-bold">Δ +0.16</span>
-</div>
-</div>
-<!-- Right Red Threat Zone (Call Danger Zone above $92,000) -->
-<div class="relative h-7 w-[20%] bg-critical-crimson/20 border-y border-r border-critical-crimson/60 flex items-center justify-end pr-2">
-<span class="font-label-code text-label-code text-critical-crimson font-bold tracking-tighter uppercase">DELTA PENETRATION &gt; 92K</span>
-<div class="absolute inset-0 bg-repeating-linear-gradient-[45deg,transparent,transparent_4px,rgba(239,68,68,0.15)_4px,rgba(239,68,68,0.15)_8px]"></div>
-</div>
-<!-- Spot Price Pin: Bright Cyber Cyan Glowing Marker @ 75,800 -->
-<!-- Position: 20% + (75,800 - 66,000) / (92,000 - 66,000) * 60% = 20% + 9,800/26,000 * 60% = 20% + 22.61% = 42.61% -->
-<div id="gauge-spot-needle" class="absolute z-30 flex flex-col items-center pointer-events-none transition-all duration-500" style="left: 42.61%; transform: translateX(-50%);">
-<!-- Pin Flag (Top) -->
-<div class="bg-telemetry-cyan text-surface-base font-data-md text-data-md font-bold px-2 py-0.5 shadow-lg border border-telemetry-cyan flex items-center gap-1">
-<span class="w-1.5 h-1.5 bg-surface-base rounded-full animate-ping"></span>
-                <span id="gauge-spot-label">BTC SPOT: $75,800.00</span>
-              </div>
-<!-- Vertical Needle -->
-<div class="w-0.5 h-14 bg-telemetry-cyan"></div>
-<!-- Radar Node Pulsing Dot (Bottom Center) -->
-<div class="w-3.5 h-3.5 -mt-1 bg-telemetry-cyan rounded-full border-2 border-surface shadow-[0_0_8px_#06b6d4]"></div>
-<div class="font-label-code text-label-code text-telemetry-cyan font-bold mt-1 bg-surface-container-high px-1 border border-border-subtle">
-                INDEX BIAS CENTER
-              </div>
-</div>
-</div>
-</div>
-<!-- Corridor Boundary Metric Badges -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-space-sm pt-space-xs font-label-code">
-<div class="p-space-sm bg-surface-container-low border border-border-subtle flex flex-col">
-<span class="text-on-surface-variant text-[10px]">DOWN-WING DISTANCE</span>
-<span id="gauge-down-buffer" class="font-data-md text-data-md text-on-surface font-bold">$9,800.00 DROP BUFFER</span>
-</div>
-<div class="p-space-sm bg-surface-container-low border border-border-subtle flex flex-col">
-<span class="text-on-surface-variant text-[10px]">UP-WING DISTANCE</span>
-<span id="gauge-up-buffer" class="font-data-md text-data-md text-on-surface font-bold">$16,200.00 RALLY BUFFER</span>
-</div>
-<div class="p-space-sm bg-surface-container-low border border-border-subtle flex flex-col">
-<span class="text-on-surface-variant text-[10px]">IMPLIED MOVE EXPECTED</span>
-<span class="font-data-md text-data-md text-terminal-amber font-bold">±$6,110 (1-SIGMA)</span>
-</div>
-<div class="p-space-sm bg-surface-container-low border border-border-subtle flex flex-col">
-<span class="text-on-surface-variant text-[10px]">PROBABILITY OF PROFIT</span>
-<span class="font-data-md text-data-md text-execution-emerald font-bold">81.44% AT EXPIRY</span>
-</div>
-</div>
-</div>
-<!-- Live PnL, Target Engine & Stop-Loss Defenses Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-12 p-space-md gap-space-md">
-<!-- PnL & Yield Engine (5 Cols) -->
-<div class="lg:col-span-5 flex flex-col justify-between p-space-md bg-surface-container-low border border-border-subtle">
-<div>
-<div class="flex items-center justify-between mb-space-xs">
-<span class="font-label-code text-label-code text-on-surface-variant uppercase">CURRENT RUN UNREALIZED PnL</span>
-<span id="hero-rom-badge" class="font-label-code text-label-code text-execution-emerald px-space-xs py-0.5 bg-execution-emerald/10 border border-execution-emerald/40">+0.00% RoM</span>
-</div>
-<div class="flex items-baseline gap-space-md my-space-xs">
-<span id="hero-upnl-text" class="font-display-lg text-display-lg text-execution-emerald font-bold tracking-tight">$0.00 <span class="text-headline-sm font-data-md text-on-surface-variant font-normal">USD</span></span>
-<div class="flex items-center gap-1 font-label-code text-label-code text-execution-emerald">
-<span class="material-symbols-outlined text-[14px]">trending_up</span>
-<span id="hero-status-badge">MONITORING</span>
-</div>
-</div>
-<div id="hero-margin-text" class="text-on-surface-variant font-body-sm text-body-sm mb-space-sm">
-  Blocked Margin: $0.00 USD | Total Credit Received: $0.00 USD
-</div>
-</div>
-<!-- Target Progress Meter -->
-<div class="flex flex-col gap-space-xs border-t border-border-subtle pt-space-sm">
-<div class="flex justify-between items-center font-label-code text-label-code">
-<div class="flex items-center gap-space-xs">
-<span class="text-on-surface-variant uppercase">CYCLE TARGET: <span id="hero-target-text" class="text-telemetry-cyan font-bold">+$30.50 USD</span> (20% Target)</span>
-<button id="btn-edit-active-group" type="button" class="px-space-xs py-0.5 bg-surface-container-high border border-border-subtle hover:border-telemetry-cyan text-telemetry-cyan font-label-code text-label-code text-[11px] font-bold rounded cursor-pointer transition-colors" title="Edit Target and Stop-Loss for active strategy">✏️ EDIT TP / SL</button>
-</div>
-<span id="hero-target-pct" class="text-telemetry-cyan font-bold">0.0% COMPLETED</span>
-</div>
-<div class="w-full bg-surface-container-high h-2 overflow-hidden">
-<div id="hero-target-bar" class="bg-gradient-to-r from-telemetry-cyan to-execution-emerald h-2 transition-all duration-500" style="width: 0%;"></div>
-</div>
-<div class="flex justify-between items-center font-label-code text-[10px] text-on-surface-variant">
-<span id="hero-premium-collected">CREDIT COLLECTED: $0.00</span>
-<span id="hero-extrinsic-value">CURRENT VALUE: $0.00</span>
-</div>
-</div>
-</div>
-<!-- Double-Defense Risk Containment Badges (7 Cols) -->
-<div class="lg:col-span-7 flex flex-col justify-between p-space-md bg-surface-container-low border border-border-subtle">
-<div>
-<div class="flex items-center justify-between mb-space-sm">
-<div class="flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-terminal-amber text-[16px]">verified_user</span>
-<span class="font-headline-sm text-headline-sm uppercase text-on-surface">Dual-Layer Stop Containment</span>
-</div>
-<span class="font-label-code text-label-code text-execution-emerald bg-execution-emerald/10 border border-execution-emerald/30 px-space-xs py-0.5">ARMED &amp; SYNCED</span>
-</div>
-<!-- Defense Tier 1: Soft Execution Daemon -->
-<div class="p-space-sm bg-surface-container border border-border-subtle mb-space-xs flex items-center justify-between">
-<div class="flex items-start gap-space-sm">
-<span class="material-symbols-outlined text-terminal-amber text-[18px] mt-0.5">smart_toy</span>
-<div>
-<div class="font-label-code text-label-code text-terminal-amber uppercase font-bold">DEFENSE 1: BOT COMBINED SOFT SL</div>
-<div class="font-body-sm text-body-sm text-on-surface-variant">Triggers autonomous market wipeout if aggregate unrealized loss hits limit.</div>
-</div>
-</div>
-<div class="text-right">
-<div id="defense-soft-sl-text" class="font-data-md text-data-md text-critical-crimson font-bold">-$61.00 USD</div>
-<div class="font-label-code text-[9px] text-on-surface-variant">(-200% PREMIUM)</div>
-</div>
-</div>
-<!-- Defense Tier 2: Delta Exchange Native Exchange Stop Orders -->
-<div class="p-space-sm bg-surface-container border border-border-prominent flex items-center justify-between">
-<div class="flex items-start gap-space-sm">
-<span class="material-symbols-outlined text-telemetry-cyan text-[18px] mt-0.5">security</span>
-<div>
-<div class="font-label-code text-label-code text-telemetry-cyan uppercase font-bold">DEFENSE 2: DELTA EXCHANGE NATIVE HARD STOPS</div>
-<div class="font-body-sm text-body-sm text-on-surface">
-                    Call SL @ <span id="defense-call-sl" class="font-data-md text-data-md text-terminal-amber">$1,008</span> • Put SL @ <span id="defense-put-sl" class="font-data-md text-data-md text-terminal-amber">$2,042</span>
-</div>
-</div>
-</div>
-<div class="flex items-center gap-space-xs">
-<span class="px-space-xs py-0.5 bg-execution-emerald/20 text-execution-emerald font-label-code text-label-code border border-execution-emerald flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px]">check_circle</span>
-                  BOOK VERIFIED
-                </span>
-</div>
-</div>
-</div>
-<div class="flex items-center justify-between text-on-surface-variant font-label-code text-[10px] mt-space-sm pt-space-xs border-t border-border-subtle">
-<span>DAEMON HEARTBEAT: <span class="text-execution-emerald">OK (100ms TICK)</span></span>
-<span>API SIGNATURE: <span class="text-on-surface">HMAC-SHA256 (VALID)</span></span>
-</div>
-</div>
-</div>
-</div>
-<!-- RIGHT / SIDE PANEL: Automation & Scheduler Controls (4 Cols) -->
-<div class="2xl:col-span-4 flex flex-col bg-surface-container-lowest border border-border-subtle">
-<!-- Section Title Header -->
-<div class="p-space-md border-b border-border-subtle bg-surface-container-low flex items-center justify-between">
-<div class="flex items-center gap-space-sm">
-<span class="material-symbols-outlined text-terminal-amber text-[18px]">precision_manufacturing</span>
-<h3 class="font-headline-sm text-headline-sm uppercase text-on-surface">Scheduler &amp; Engine Matrix</h3>
-</div>
-<span class="font-label-code text-label-code text-execution-emerald uppercase">EXEC_DAEMON_OK</span>
-</div>
-<div class="p-space-md flex flex-col gap-space-md flex-1 justify-between">
-<!-- Autopilot Master Toggle Box -->
-<div class="p-space-md bg-surface-container-low border border-execution-emerald/40 flex items-center justify-between">
-<div class="flex flex-col">
-<span class="font-label-code text-label-code text-on-surface uppercase font-bold">AUTOPILOT MONTHLY SELLING</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">Continuous rolling cycle upon monthly expiration.</span>
-</div>
-<!-- Toggle Control -->
-<div class="flex items-center gap-space-xs">
-<span class="font-label-code text-label-code text-execution-emerald uppercase font-bold">ENGAGED</span>
-<div id="toggle-autopilot" class="w-12 h-6 bg-execution-emerald p-0.5 cursor-pointer flex justify-end items-center transition-colors">
-<div class="w-5 h-5 bg-surface-base border border-surface-container shadow"></div>
-</div>
-</div>
-</div>
-<!-- Lot Sizing & Quick Selector -->
-<div class="p-space-md bg-surface-container border border-border-subtle flex flex-col gap-space-sm">
-<div class="flex items-center justify-between">
-<label class="font-label-code text-label-code text-on-surface-variant uppercase">DEFAULT CONTRACT LOTS</label>
-<span class="font-label-code text-[10px] text-terminal-amber">CONTRACT MULTIPLIER: 0.001 BTC</span>
-</div>
-<div class="grid grid-cols-12 gap-space-xs">
-<div class="col-span-8 flex items-center bg-surface-container-lowest border border-border-prominent px-space-sm py-1">
-<input id="input-lots" class="w-full bg-transparent text-right font-data-lg text-data-lg text-on-surface focus:outline-none tabular-nums" type="number" min="10" max="1000" step="10" value="100"/>
-<span class="font-label-code text-label-code text-on-surface-variant ml-space-sm">LOTS</span>
-</div>
-<button id="btn-lot-minus" class="col-span-2 bg-surface-container-high hover:bg-surface-bright text-on-surface font-data-md text-data-md flex items-center justify-center border border-border-subtle cursor-pointer" type="button">-</button>
-<button id="btn-lot-plus" class="col-span-2 bg-surface-container-high hover:bg-surface-bright text-on-surface font-data-md text-data-md flex items-center justify-center border border-border-subtle cursor-pointer" type="button">+</button>
-</div>
-<!-- Quick Select Buttons -->
-<div class="grid grid-cols-4 gap-space-xs mt-space-xs">
-<button class="btn-lot-chip py-space-xs bg-surface-container-low hover:border-terminal-amber text-on-surface-variant font-label-code text-label-code border border-border-subtle text-center cursor-pointer" data-lots="50" type="button">50</button>
-<button class="btn-lot-chip py-space-xs bg-terminal-amber/20 border border-terminal-amber text-terminal-amber font-label-code text-label-code font-bold text-center cursor-pointer" data-lots="100" type="button">100</button>
-<button class="btn-lot-chip py-space-xs bg-surface-container-low hover:border-terminal-amber text-on-surface-variant font-label-code text-label-code border border-border-subtle text-center cursor-pointer" data-lots="150" type="button">150</button>
-<button class="btn-lot-chip py-space-xs bg-surface-container-low hover:border-terminal-amber text-on-surface-variant font-label-code text-label-code border border-border-subtle text-center cursor-pointer" data-lots="200" type="button">200</button>
-</div>
-</div>
-<!-- Cycle Execution Cadence Card -->
-<div class="p-space-md bg-surface-container border border-border-subtle flex flex-col gap-space-sm">
-<div class="flex items-center justify-between">
-<span class="font-label-code text-label-code text-on-surface-variant uppercase">NOVEMBER CYCLE BUDGET</span>
-<span class="font-data-md text-data-md text-telemetry-cyan font-bold">1 / 2 TRADES EXECUTED</span>
-</div>
-<!-- Segmented Indicator -->
-<div class="grid grid-cols-2 gap-space-xs h-3">
-<div class="bg-telemetry-cyan border border-telemetry-cyan"></div>
-<div class="bg-surface-container-high border border-border-subtle"></div>
-</div>
-<div class="flex items-center justify-between text-on-surface-variant font-label-code text-[10px]">
-<span>RUN #1: FILLED ($305 PREM)</span>
-<span>RUN #2: PENDING NEXT EXPIRY WINDOW</span>
-</div>
-</div>
-<!-- Institutional Zero Overlap Rule Enforcement -->
-<div class="p-space-md bg-surface-container-low border border-border-prominent flex flex-col gap-space-xs">
-<div class="flex items-center gap-space-xs text-terminal-amber">
-<span class="material-symbols-outlined text-[16px]">lock</span>
-<span class="font-label-code text-label-code uppercase font-bold tracking-wider">GOLDEN RULE ACTIVE: ZERO OVERLAP</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
-            Quant engine strictly bans overlapping positions in identical expiration cycles. A new contract will execute only upon 50% TP harvest or hard expiration settlement.
-          </p>
-</div>
-<!-- Fixed Strategy Parameter Metrics List -->
-<div class="bg-surface-container-lowest border border-border-subtle p-space-sm flex flex-col gap-space-xs font-label-code text-[11px]">
-<div class="flex justify-between py-0.5 border-b border-border-subtle">
-<span class="text-on-surface-variant">STRIKE SELECTION DELTA:</span>
-<span class="text-on-surface font-bold">± 0.15 Δ (OTM WINGS)</span>
-</div>
-<div class="flex justify-between py-0.5 border-b border-border-subtle">
-<span class="text-on-surface-variant">ENTRY WINDOW:</span>
-<span class="text-on-surface font-bold">45 TO 30 DTE RANGE</span>
-</div>
-<div class="flex justify-between py-0.5 border-b border-border-subtle">
-<span class="text-on-surface-variant">HARVEST PROFIT TARGET:</span>
-<span class="text-execution-emerald font-bold">50% MAX EXTRACTED</span>
-</div>
-<div class="flex justify-between py-0.5">
-<span class="text-on-surface-variant">STOP-LOSS MULTIPLIER:</span>
-<span class="text-critical-crimson font-bold">200% OF INITIAL PREMIUM</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- DEDICATED LIVE TP & SL COMMAND CENTER (HIGH VISIBILITY HUD) -->
-<div class="mb-space-md p-space-md bg-surface-container-low border-2 border-telemetry-cyan/40 shadow-2xl">
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-space-xs mb-space-sm border-b border-border-subtle gap-space-xs">
-    <div class="flex items-center gap-2">
-      <span class="material-symbols-outlined text-telemetry-cyan text-[22px]">shield_with_heart</span>
-      <h3 class="font-headline-sm text-headline-sm uppercase text-on-surface tracking-wider font-bold">
-        ACTIVE RISK MANAGEMENT: TARGET PROFIT (TP) &amp; STOP-LOSS (SL) ENGINE
-      </h3>
-    </div>
-    <div class="flex items-center gap-2">
-      <span class="px-space-xs py-0.5 bg-execution-emerald/20 text-execution-emerald border border-execution-emerald font-label-code text-label-code font-bold">
-        ✓ 100% ARMED &amp; CLOUD MONITORED
-      </span>
-      <button id="btn-hud-edit-tpsl" type="button" class="px-space-sm py-1 bg-terminal-amber text-surface-container-lowest font-label-code text-label-code font-bold hover:bg-terminal-amber/90 transition-colors cursor-pointer flex items-center gap-1">
-        <span class="material-symbols-outlined text-[15px]">tune</span>
-        <span>EDIT TP / SL</span>
-      </button>
-    </div>
-  </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md">
-    <!-- Card 1: TARGET PROFIT -->
-    <div class="p-space-sm bg-surface-container border border-execution-emerald/50 flex flex-col justify-between">
-      <div class="flex items-center justify-between">
-        <span class="font-label-code text-label-code text-execution-emerald uppercase font-bold flex items-center gap-1">
-          <span class="material-symbols-outlined text-[16px]">stars</span> TARGET PROFIT (TP)
-        </span>
-        <span class="text-[10px] font-label-code text-execution-emerald bg-execution-emerald/15 px-1 border border-execution-emerald/30 font-bold">+20% HARVEST</span>
-      </div>
-      <div class="my-space-xs">
-        <div id="hud-tp-val" class="font-display-md text-display-md text-execution-emerald font-bold tracking-tight">+$30.50 USD</div>
-        <div class="text-[11px] text-on-surface-variant font-body-sm">Automated exit when strategy net profit hits this mark.</div>
-      </div>
-      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
-        <span>STATUS:</span>
-        <span id="hud-tp-status" class="text-execution-emerald font-bold">AUTO-HARVESTING</span>
-      </div>
-    </div>
+            </label>
 
-    <!-- Card 2: BOT COMBINED SOFT SL -->
-    <div class="p-space-sm bg-surface-container border border-critical-crimson/50 flex flex-col justify-between">
-      <div class="flex items-center justify-between">
-        <span class="font-label-code text-label-code text-critical-crimson uppercase font-bold flex items-center gap-1">
-          <span class="material-symbols-outlined text-[16px]">dangerous</span> COMBINED SOFT SL
-        </span>
-        <span class="text-[10px] font-label-code text-critical-crimson bg-critical-crimson/15 px-1 border border-critical-crimson/30 font-bold">-200% CAP</span>
-      </div>
-      <div class="my-space-xs">
-        <div id="hud-soft-sl-val" class="font-display-md text-display-md text-critical-crimson font-bold tracking-tight">-$61.00 USD</div>
-        <div class="text-[11px] text-on-surface-variant font-body-sm">Bot market-wipes positions if combined drawdown hits this limit.</div>
-      </div>
-      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
-        <span>CURRENT NET MTM:</span>
-        <span id="hud-current-mtm" class="text-on-surface font-bold">-$31.60 USD</span>
-      </div>
-    </div>
-
-    <!-- Card 3: CALL LEG NATIVE HARD SL -->
-    <div class="p-space-sm bg-surface-container border border-terminal-amber/50 flex flex-col justify-between">
-      <div class="flex items-center justify-between">
-        <span class="font-label-code text-label-code text-terminal-amber uppercase font-bold flex items-center gap-1">
-          <span class="material-symbols-outlined text-[16px]">security</span> CALL NATIVE SL (2.0x)
-        </span>
-        <span class="text-[10px] font-label-code text-terminal-amber bg-terminal-amber/15 px-1 border border-terminal-amber/30 font-bold">DELTA GTC</span>
-      </div>
-      <div class="my-space-xs">
-        <div class="font-display-md text-display-md text-terminal-amber font-bold tracking-tight">
-          <span id="hud-call-sl-price">$1,008.0</span> <span class="text-headline-xs text-on-surface-variant font-normal">SL PX</span>
-        </div>
-        <div class="text-[11px] text-on-surface font-body-sm">Leg: <strong class="text-on-surface font-label-code">C-BTC-92000-251226</strong></div>
-      </div>
-      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
-        <span>DELTA ORDER ID:</span>
-        <span class="text-execution-emerald font-bold">#1674810000 (ACTIVE)</span>
-      </div>
-    </div>
-
-    <!-- Card 4: PUT LEG NATIVE HARD SL -->
-    <div class="p-space-sm bg-surface-container border border-terminal-amber/50 flex flex-col justify-between">
-      <div class="flex items-center justify-between">
-        <span class="font-label-code text-label-code text-terminal-amber uppercase font-bold flex items-center gap-1">
-          <span class="material-symbols-outlined text-[16px]">security</span> PUT NATIVE SL (2.0x)
-        </span>
-        <span class="text-[10px] font-label-code text-terminal-amber bg-terminal-amber/15 px-1 border border-terminal-amber/30 font-bold">DELTA GTC</span>
-      </div>
-      <div class="my-space-xs">
-        <div class="font-display-md text-display-md text-terminal-amber font-bold tracking-tight">
-          <span id="hud-put-sl-price">$2,042.0</span> <span class="text-headline-xs text-on-surface-variant font-normal">SL PX</span>
-        </div>
-        <div class="text-[11px] text-on-surface font-body-sm">Leg: <strong class="text-on-surface font-label-code">P-BTC-66000-251226</strong></div>
-      </div>
-      <div class="text-[10px] font-label-code text-on-surface-variant pt-space-xs border-t border-border-subtle flex justify-between">
-        <span>DELTA ORDER ID:</span>
-        <span class="text-execution-emerald font-bold">#1674810074 (ACTIVE)</span>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- BOTTOM TABBED EXECUTION & LEDGER CONSOLE -->
-<div class="flex flex-col bg-surface-container-lowest border border-border-subtle mt-space-xs">
-<!-- Tab Navigation Strip with Status Badges -->
-<div class="flex items-center bg-surface-container-low border-b border-border-subtle px-space-md pt-space-xs overflow-x-auto">
-<button class="tab-btn active px-space-lg py-space-sm font-label-code text-label-code uppercase border-b-2 border-terminal-amber text-terminal-amber font-bold flex items-center gap-space-xs bg-surface-container-lowest" data-tab="tab-positions" type="button">
-<span class="material-symbols-outlined text-[15px]">table_rows</span>
-<span>LIVE STRANGLE POSITIONS</span>
-<span id="badge-positions-count" class="px-space-xs py-0.2 bg-terminal-amber/20 text-terminal-amber font-data-md text-data-md">0</span>
-</button>
-<button class="tab-btn px-space-lg py-space-sm font-label-code text-label-code uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface flex items-center gap-space-xs transition-colors" data-tab="tab-stops" type="button">
-<span class="material-symbols-outlined text-[15px]">security</span>
-<span>DELTA PENDING STOP ORDERS</span>
-<span id="badge-stops-count" class="px-space-xs py-0.2 bg-telemetry-cyan/20 text-telemetry-cyan font-data-md text-data-md">0</span>
-</button>
-<button class="tab-btn px-space-lg py-space-sm font-label-code text-label-code uppercase border-b-2 border-transparent text-on-surface-variant hover:text-on-surface flex items-center gap-space-xs transition-colors" data-tab="tab-audit" type="button">
-<span class="material-symbols-outlined text-[15px]">history</span>
-<span>AUDIT &amp; TRADE RUN HISTORY</span>
-<span id="badge-audit-count" class="px-space-xs py-0.2 bg-surface-container-high text-on-surface-variant font-data-md text-data-md">0</span>
-</button>
-</div>
-<!-- TAB PANEL 1: LIVE POSITIONS -->
-<div class="tab-content block overflow-x-auto" id="tab-positions">
-<!-- Multi-selection Action Pill Bar (hidden until checkboxes checked) -->
-<div id="batchActionBar" class="hidden mb-space-sm p-space-sm bg-surface-container-high border border-telemetry-cyan/40 flex items-center justify-between rounded">
-  <div class="flex items-center gap-space-md">
-    <span id="batchCount" class="font-label-code text-label-code text-telemetry-cyan font-bold">0 SELECTED</span>
-    <span id="batchPnl" class="font-data-md text-data-md text-on-surface">MTM: $0.00</span>
-  </div>
-  <button id="openGroupModalBtn" type="button" class="px-space-md py-1.5 bg-telemetry-cyan text-surface-container-lowest font-label-code text-label-code font-bold hover:bg-telemetry-cyan/90 transition-colors flex items-center gap-1.5 cursor-pointer rounded">
-    <span class="material-symbols-outlined text-[16px]">group_add</span>
-    <span>➕ COMBINE INTO GROUP (SET COMBINED SL / TP)</span>
-  </button>
-</div>
-<table class="w-full text-left font-data-md text-data-md border-collapse">
-<thead>
-<tr class="bg-surface-container border-b border-border-subtle font-label-code text-label-code text-on-surface-variant">
-<th class="py-space-sm px-space-md text-center w-10"><input type="checkbox" id="selectAllPositions" class="rounded bg-surface-container-high border-border-subtle text-telemetry-cyan focus:ring-0 cursor-pointer" title="Select All"></th>
-<th class="py-space-sm px-space-md uppercase">OPTION CONTRACT SYMBOL</th>
-<th class="py-space-sm px-space-md uppercase">SIDE</th>
-<th class="py-space-sm px-space-md uppercase text-right">SIZE</th>
-<th class="py-space-sm px-space-md uppercase text-right">ENTRY PX</th>
-<th class="py-space-sm px-space-md uppercase text-right">MARK PX</th>
-<th class="py-space-sm px-space-md uppercase text-center text-terminal-amber font-bold">SL TRIGGER (2.0x HARD SL)</th>
-<th class="py-space-sm px-space-md uppercase text-center text-execution-emerald font-bold">TARGET (TP)</th>
-<th class="py-space-sm px-space-md uppercase text-right">UNREALIZED PnL</th>
-<th class="py-space-sm px-space-md uppercase text-center">DELTA STATUS</th>
-<th class="py-space-sm px-space-md uppercase text-center">ACTIONS</th>
-</tr>
-</thead>
-<tbody id="positions-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<tr><td colspan="11" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING LIVE DELTA POSITIONS...</td></tr>
-</tbody>
-</table>
-</div>
-<!-- TAB PANEL 2: DELTA PENDING HARD STOPS -->
-<div class="tab-content hidden overflow-x-auto" id="tab-stops">
-<table class="w-full text-left font-data-md text-data-md border-collapse">
-<thead>
-<tr class="bg-surface-container border-b border-border-subtle font-label-code text-label-code text-on-surface-variant">
-<th class="py-space-sm px-space-md uppercase">ORDER ID</th>
-<th class="py-space-sm px-space-md uppercase">OPTION CONTRACT</th>
-<th class="py-space-sm px-space-md uppercase">STOP ORDER TYPE</th>
-<th class="py-space-sm px-space-md uppercase text-right">STOP TRIGGER</th>
-<th class="py-space-sm px-space-md uppercase text-right">LIMIT PRICE</th>
-<th class="py-space-sm px-space-md uppercase text-right">SIZE</th>
-<th class="py-space-sm px-space-md uppercase text-center">DELTA STATUS</th>
-</tr>
-</thead>
-<tbody id="stops-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<tr><td colspan="7" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING DELTA PENDING STOP ORDERS...</td></tr>
-</tbody>
-</table>
-</div>
-<!-- TAB PANEL 3: AUDIT & TRADE HISTORY -->
-<div class="tab-content hidden overflow-x-auto" id="tab-audit">
-<table class="w-full text-left font-data-md text-data-md border-collapse">
-<thead>
-<tr class="bg-surface-container border-b border-border-subtle font-label-code text-label-code text-on-surface-variant">
-<th class="py-space-sm px-space-md uppercase">SETTLEMENT DATE</th>
-<th class="py-space-sm px-space-md uppercase">STRATEGY RUN</th>
-<th class="py-space-sm px-space-md uppercase text-right">SIZE</th>
-<th class="py-space-sm px-space-md uppercase text-right">PROFIT REALIZED</th>
-<th class="py-space-sm px-space-md uppercase text-center">EXIT REASON</th>
-<th class="py-space-sm px-space-md uppercase text-center">AUDIT HASH</th>
-</tr>
-</thead>
-<tbody id="audit-tbody" class="divide-y divide-border-subtle font-data-md text-data-md">
-<tr><td colspan="6" class="py-space-md text-center text-on-surface-variant font-label-code">FETCHING SETTLED AUDIT LOGS...</td></tr>
-</tbody>
-</table>
-</div>
-</div>
-<script>
-    // Tab switching interactivity for Institutional Console
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        // Clear active styles
-        document.querySelectorAll('.tab-btn').forEach(b => {
-          b.classList.remove('border-terminal-amber', 'text-terminal-amber', 'bg-surface-container-lowest');
-          b.classList.add('border-transparent', 'text-on-surface-variant');
-        });
-        
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
-        // Activate clicked tab
-        btn.classList.remove('border-transparent', 'text-on-surface-variant');
-        btn.classList.add('border-terminal-amber', 'text-terminal-amber', 'bg-surface-container-lowest');
-
-        const tabId = btn.getAttribute('data-tab');
-        const target = document.getElementById(tabId);
-        if (target) {
-          target.classList.remove('hidden');
-        }
-      });
-    });
-  </script>
-</div></main></div>
-  <!-- Core Real-Time Application JavaScript -->
-  <script src="/static/js/app.js"></script>
-
-<!-- Group Creation Modal -->
-<div id="groupModal" style="display: none;" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm items-center justify-center p-4">
-  <div class="bg-surface-container-lowest border border-border-subtle w-full max-w-lg p-space-lg shadow-2xl relative">
-    <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-telemetry-cyan">group_add</span>
-        <h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">CREATE COMBINED STRATEGY GROUP</h3>
-      </div>
-      <button id="groupModalCloseBtn" type="button" class="text-on-surface-variant hover:text-on-surface text-2xl font-bold cursor-pointer">&times;</button>
-    </div>
-    
-    <div class="space-y-space-md">
-      <div>
-        <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">STRATEGY / GROUP NAME</label>
-        <input type="text" id="groupNameInput" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-on-surface font-body-sm focus:border-telemetry-cyan outline-none" placeholder="e.g. BTC Strangle Pair #1">
-      </div>
-
-      <div class="bg-surface-container p-space-sm border border-border-subtle">
-        <div class="font-label-code text-label-code text-on-surface-variant uppercase mb-1">INCLUDED LEGS:</div>
-        <div id="selectedLegsList" class="space-y-1 text-data-md font-data-md text-on-surface max-h-32 overflow-y-auto">
-          <!-- Dynamically populated -->
-        </div>
-        <div class="mt-space-sm pt-space-xs border-t border-border-subtle flex justify-between font-label-code text-label-code">
-          <span class="text-on-surface-variant uppercase">COMBINED UNREALIZED MTM:</span>
-          <span id="groupCurrentMtm" class="text-execution-emerald font-bold">$0.00 USD</span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-space-md">
-        <div>
-          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED TARGET ($)</label>
-          <input type="number" id="groupTargetInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-execution-emerald font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 15.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code">Auto-exits all legs when profit hits this $</span>
-        </div>
-        <div>
-          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED STOP LOSS ($)</label>
-          <input type="number" id="groupStopLossInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-critical-crimson font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 30.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code">Auto-exits all legs when loss hits this $</span>
-        </div>
-      </div>
-
-      <div class="p-space-xs bg-telemetry-cyan/10 border border-telemetry-cyan/30 text-[11px] font-label-code text-telemetry-cyan">
-        ⚡ <strong>Automated 1-Second Monitor:</strong> The 24/7 background daemon monitors total net PnL every second. As soon as Combined Target or Stop Loss is touched, it automatically sends market-close orders for all legs!
-      </div>
-    </div>
-
-    <div class="flex items-center justify-end gap-space-sm border-t border-border-subtle pt-space-md mt-space-md">
-      <button id="groupModalCancelBtn" type="button" class="px-space-md py-2 bg-surface-container text-on-surface-variant font-label-code text-label-code uppercase hover:text-on-surface cursor-pointer">CANCEL</button>
-      <button id="groupModalSaveBtn" type="button" class="px-space-md py-2 bg-execution-emerald text-surface-container-lowest font-label-code text-label-code font-bold uppercase hover:bg-execution-emerald/90 cursor-pointer">ACTIVATE COMBINED GROUP</button>
-    </div>
-  </div>
-</div>
-
-<!-- Edit Strategy Group Modal -->
-<div id="editGroupModal" style="display: none;" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm items-center justify-center p-4">
-  <div class="bg-surface-container-lowest border-2 border-terminal-amber w-full max-w-lg p-space-lg shadow-2xl relative">
-    <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-terminal-amber text-[24px]">tune</span>
-        <h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight font-bold">
-          UPDATE STRATEGY TARGET &amp; STOP-LOSS
-        </h3>
-      </div>
-      <button id="editGroupModalCloseBtn" type="button" class="text-on-surface-variant hover:text-critical-crimson text-2xl font-bold cursor-pointer p-1">&times;</button>
-    </div>
-
-    <div class="space-y-space-md">
-      <input type="hidden" id="editGroupIdInput">
-      <div>
-        <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">STRATEGY NAME</label>
-        <input type="text" id="editGroupNameInput" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-on-surface font-body-sm outline-none" placeholder="BTC Monthly Strangle">
-      </div>
-
-      <!-- Target and Soft SL -->
-      <div class="grid grid-cols-2 gap-space-md">
-        <div class="bg-surface-container p-space-sm border border-execution-emerald/40">
-          <label class="block font-label-code text-label-code text-execution-emerald uppercase font-bold mb-1 flex items-center gap-1">
-            <span class="material-symbols-outlined text-[15px]">stars</span> TARGET PROFIT ($)
-          </label>
-          <input type="number" id="editGroupTargetInput" step="any" min="0.1" class="w-full bg-surface-container-lowest border border-execution-emerald/60 px-space-sm py-2 text-execution-emerald font-data-md font-bold focus:border-execution-emerald outline-none" placeholder="e.g. 15.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code block mt-1">Auto-exits all legs when profit reaches this $</span>
-        </div>
-        <div class="bg-surface-container p-space-sm border border-critical-crimson/40">
-          <label class="block font-label-code text-label-code text-critical-crimson uppercase font-bold mb-1 flex items-center gap-1">
-            <span class="material-symbols-outlined text-[15px]">dangerous</span> COMBINED SOFT SL ($)
-          </label>
-          <input type="number" id="editGroupStopLossInput" step="any" min="0.1" class="w-full bg-surface-container-lowest border border-critical-crimson/60 px-space-sm py-2 text-critical-crimson font-data-md font-bold focus:border-critical-crimson outline-none" placeholder="e.g. 30.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code block mt-1">Auto-exits all legs when loss reaches this $</span>
-        </div>
-      </div>
-
-      <!-- Native Hard Stop Prices -->
-      <div class="p-space-sm bg-surface-container border border-terminal-amber/30">
-        <div class="font-label-code text-label-code text-terminal-amber uppercase font-bold mb-2 flex items-center gap-1">
-          <span class="material-symbols-outlined text-[15px]">security</span> DELTA NATIVE EXCHANGE BRACKET STOPS (PER-LEG)
-        </div>
-        <div class="grid grid-cols-2 gap-space-md">
-          <div>
-            <label class="block text-[11px] font-label-code text-on-surface-variant uppercase mb-1">CALL SL TRIGGER PX ($)</label>
-            <input type="number" id="editGroupCallSlInput" step="any" min="1" class="w-full bg-surface-container-lowest border border-border-subtle px-space-sm py-1.5 text-terminal-amber font-data-md font-bold focus:border-terminal-amber outline-none" placeholder="1008.0">
-            <span class="text-[9px] text-on-surface-variant font-label-code">Order on C-BTC-92000</span>
           </div>
-          <div>
-            <label class="block text-[11px] font-label-code text-on-surface-variant uppercase mb-1">PUT SL TRIGGER PX ($)</label>
-            <input type="number" id="editGroupPutSlInput" step="any" min="1" class="w-full bg-surface-container-lowest border border-border-subtle px-space-sm py-1.5 text-terminal-amber font-data-md font-bold focus:border-terminal-amber outline-none" placeholder="2042.0">
-            <span class="text-[9px] text-on-surface-variant font-label-code">Order on P-BTC-66000</span>
+
+
+
+          <!-- Submit Button -->
+
+          <button class="btn btn-submit-order" id="submitOrderBtn" disabled>
+
+            SUBMIT LIVE ORDER
+
+          </button>
+
+
+
+          <div class="ticket-footer-note">
+
+            Executed via <code>Tradehull-Delta-Exchange</code> on India production, or signed HMAC-SHA256 REST API.
+
           </div>
+
         </div>
+
+      </article>
+
+
+
+      <!-- Panel 2: Open Positions & Strategy Baskets -->
+
+      <article class="panel positions-panel">
+
+        <div class="panel-header">
+
+          <div class="panel-title-box">
+
+            <span class="panel-icon">📊</span>
+
+            <h3 class="panel-title">OPEN POSITIONS</h3>
+
+            <span class="badge" id="portfolioUpnlBadge" style="margin-left: 10px; font-family: monospace; display: none;">TOTAL UPNL: $0.00</span>
+
+          </div>
+
+          <div class="panel-actions">
+
+            <button class="btn btn-refresh-sm" id="refreshPositionsBtn" title="Refresh Positions">
+
+              ↻
+
+            </button>
+
+            <button class="btn btn-panic" id="exitAllBtn" disabled>
+
+              🚨 EXIT ALL
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="positions-body">
+
+          <div class="panic-disclaimer">
+
+            <strong>MULTI-LEG COMBINING:</strong> Select 2 or more positions using checkboxes to set a <strong>Combined Target (TP) &amp; Combined Stop-Loss (SL)</strong>.
+
+          </div>
+
+
+
+          <!-- Multi-selection Action Pill Bar (hidden until checkboxes checked) -->
+
+          <div class="batch-action-bar" id="batchActionBar" style="display: none;">
+
+            <div class="batch-info">
+
+              <span class="batch-count" id="batchCount">0 SELECTED</span>
+
+              <span class="batch-pnl font-mono" id="batchPnl">MTM: $0.00</span>
+
+            </div>
+
+            <button class="btn btn-group-create" id="openGroupModalBtn">
+
+              ➕ COMBINE INTO GROUP (SET COMBINED SL / TP)
+
+            </button>
+
+          </div>
+
+
+
+          <div class="table-container mini-table-container">
+
+            <table class="mini-table">
+
+              <thead>
+
+                <tr>
+
+                  <th style="width: 24px;"><input type="checkbox" id="selectAllPositions" title="Select All"></th>
+
+                  <th>SYMBOL</th>
+
+                  <th>SIDE</th>
+
+                  <th>SIZE</th>
+
+                  <th>ENTRY</th>
+
+                  <th>MARK</th>
+
+                  <th>VALUE</th>
+
+                  <th>UPNL ($)</th>
+
+                  <th style="text-align: right;">ACTION</th>
+
+                </tr>
+
+              </thead>
+
+              <tbody id="positionsBody">
+
+                <tr class="empty-mini-row">
+
+                  <td colspan="9">Connect credentials to view open account positions.</td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+
+      <!-- Panel: BTC Monthly Safe OTM Strangle Strategy -->
+
+      <article class="panel strangle-strategy-panel">
+
+        <div class="panel-header">
+
+          <div class="panel-title-box">
+
+            <span class="panel-icon">🤖</span>
+
+            <h3 class="panel-title">BTC MONTHLY SAFE OTM STRANGLE</h3>
+
+          </div>
+
+          <div class="strangle-header-badges">
+
+            <span class="badge-track-record">🏆 90.5% WIN RATE · 3-YR REAL DATA</span>
+
+            <button type="button" class="btn-selling-toggle selling-off" id="sellingMasterToggleBtn" title="Click to turn Option Selling ON or OFF">
+
+              <span class="selling-dot" id="sellingToggleDot">🔴</span>
+
+              <span class="selling-text font-mono" id="sellingToggleText">SELLING: OFF (PAUSED)</span>
+
+            </button>
+
+            <span class="badge-scheduler font-mono" id="strangleSchedulerBadge">⏰ SCHEDULER: OFF</span>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="strangle-body">
+
+          <!-- Permanent Next Strangle Schedule Bar (Always Visible) -->
+
+          <div class="next-strangle-schedule-bar font-mono" id="nextStrangleScheduleBar">
+
+            <div class="schedule-bar-left">
+
+              <span class="schedule-bar-icon">⏰</span>
+
+              <span class="schedule-bar-label">NEXT AUTOMATED STRANGLE:</span>
+
+              <span class="schedule-bar-date" id="strangleNextDateTime">Saturday, 07-Nov-2026 @ 00:00:00 IST</span>
+
+            </div>
+
+            <div class="schedule-bar-right">
+
+              <span class="schedule-countdown-badge" id="strangleNextCountdown">⏳ 8d 12h remaining</span>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Master Selling Engine Status Banner -->
+
+          <div class="selling-status-banner banner-selling-off" id="sellingStatusBanner">
+
+            <span class="banner-icon" id="sellingBannerIcon">⏸️</span>
+
+            <div class="banner-content">
+
+              <span class="banner-title" id="sellingBannerTitle">OPTION SELLING IS PAUSED (OFF):</span>
+
+              <span class="banner-desc" id="sellingBannerDesc">Option selling is turned OFF. No new sell trades will be opened. Live option scanner, positions tracking &amp; TP/SL risk monitors remain 100% active.</span>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Live Execution & Next Entry Schedule Tracker -->
+
+          <div class="strangle-execution-tracker tracker-state-paused" id="strangleExecutionTracker">
+
+            <div class="tracker-main-row">
+
+              <div class="tracker-left">
+
+                <span class="tracker-badge badge-paused" id="trackerBadge">⏸️ SELLING PAUSED</span>
+
+                <span class="tracker-headline font-mono" id="trackerHeadline">OPTION SELLING IS OFF</span>
+
+              </div>
+
+              <div class="tracker-right">
+
+                <span class="tracker-timer-pill font-mono" id="trackerCountdown">Scheduler Paused</span>
+
+              </div>
+
+            </div>
+
+            <div class="tracker-detail-row" id="trackerDetailRow">
+
+              <span class="tracker-detail-icon" id="trackerDetailIcon">ℹ️</span>
+
+              <span class="tracker-detail-text" id="trackerDetailText">Option selling is turned OFF. Turn ON the "SELLING: OFF" switch above to authorize automated Saturday entries.</span>
+
+            </div>
+
+          </div>
+
+
+
+          <div class="strangle-description-bar">
+
+            <strong>OFFICIAL RULEBOOK:</strong> High-probability monthly theta decay selling OTM Call (~+15-20%) and Put (~-15-20%) closest to ~$500 premium on Next-Month Last Friday expiry with <strong>20% Take Profit</strong> and <strong>Dynamic Stop-Loss</strong>.
+
+          </div>
+
+
+
+          <!-- Configuration & Sizing Controls -->
+
+          <div class="strangle-config-grid">
+
+            <div class="input-group">
+
+              <div class="lots-label-row">
+
+                <label for="strangleLotsInput">LOT SIZING (1 LOT = 0.001 BTC)</label>
+
+                <span class="saved-lot-badge font-mono" id="savedLotBadge" style="display:none;">💾 SAVED: 100 LOTS</span>
+
+              </div>
+
+              <div class="strangle-lots-wrapper">
+
+                <input type="number" id="strangleLotsInput" min="1" step="1" value="100" class="font-mono">
+
+                <div class="strangle-quick-lots">
+
+                  <button type="button" class="btn-quick-lot" data-lot="50">50</button>
+
+                  <button type="button" class="btn-quick-lot active" data-lot="100">100</button>
+
+                  <button type="button" class="btn-quick-lot" data-lot="250">250</button>
+
+                  <button type="button" class="btn-quick-lot" data-lot="500">500</button>
+
+                  <button type="button" class="btn-quick-lot" data-lot="1000">1,000</button>
+
+                </div>
+
+                <button type="button" class="btn-save-lots" id="saveLotsBtn" title="Save this lot size as your permanent default">
+
+                  💾 SAVE LOT
+
+                </button>
+
+              </div>
+
+              <span class="input-subnote" id="strangleBtcSizeNote">Position Size: 0.100 BTC per leg</span>
+
+            </div>
+
+
+
+            <!-- Auto-Scheduler Control -->
+
+            <div class="strangle-scheduler-box">
+
+              <div class="scheduler-label-group">
+
+                <label>24/7 SATURDAY 00:00 IST AUTO-SCHEDULER</label>
+
+                <span class="scheduler-subnote">Auto-executes on 1st &amp; subsequent Saturdays (Zero Overlap Golden Rule)</span>
+
+              </div>
+
+              <div class="scheduler-toggle-wrap">
+
+                <label class="toggle-switch">
+
+                  <input type="checkbox" id="strangleSchedulerToggle">
+
+                  <span class="slider round"></span>
+
+                </label>
+
+                <span class="scheduler-status-text font-mono" id="strangleSchedulerStatusText">DISABLED</span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Capital & Live Margin Safety Guard (Rulebook Sec. 8) -->
+
+          <div class="strangle-margin-guard-box" id="strangleMarginGuardBox">
+
+            <div class="margin-guard-header">
+
+              <div class="guard-title-wrap">
+
+                <span class="guard-icon">🛡️</span>
+
+                <span class="guard-title">LIVE MARGIN &amp; CAPITAL SAFETY GUARD</span>
+
+                <span class="guard-rule-ref">(Rulebook Sec. 8 · 3.0x Buffer)</span>
+
+              </div>
+
+              <span class="badge-cushion badge-cushion-neutral font-mono" id="marginCushionStatusBadge">ℹ️ AWAITING WALLET</span>
+
+            </div>
+
+            <div class="margin-guard-metrics">
+
+              <div class="margin-guard-item">
+
+                <span class="guard-label">EST. MARGIN REQUIRED:</span>
+
+                <span class="guard-val font-mono" id="marginRequiredVal">~$500.00 USD</span>
+
+              </div>
+
+              <div class="margin-guard-item">
+
+                <span class="guard-label">REC. SAFE CAPITAL (3.0x):</span>
+
+                <span class="guard-val font-mono" id="marginRecommendedVal">~$1,500.00 USD</span>
+
+              </div>
+
+              <div class="margin-guard-item">
+
+                <span class="guard-label">WALLET AVAILABLE:</span>
+
+                <span class="guard-val font-mono" id="marginWalletAvailVal">$0.00 USD</span>
+
+              </div>
+
+              <div class="margin-guard-item">
+
+                <span class="guard-label">CUSHION RATIO:</span>
+
+                <span class="guard-val font-mono" id="marginCushionRatioVal">0.0x</span>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Live Rulebook Strike Selection Preview -->
+
+          <div class="strangle-strikes-container">
+
+            <div class="strangle-leg-card strangle-leg-call">
+
+              <div class="leg-card-header">
+
+                <span class="leg-tag-call">SELL CALL (+OTM)</span>
+
+                <span class="leg-dist font-mono" id="strangleCallDist">+15.8% OTM</span>
+
+              </div>
+
+              <div class="leg-symbol font-mono" id="strangleCallSymbol">C-BTC-96000-271126</div>
+
+              <div class="leg-metrics-row">
+
+                <div class="leg-metric">
+
+                  <span class="metric-lbl">STRIKE:</span>
+
+                  <span class="metric-val font-mono" id="strangleCallStrike">$96,000</span>
+
+                </div>
+
+                <div class="leg-metric">
+
+                  <span class="metric-lbl">MARK PREM:</span>
+
+                  <span class="metric-val font-mono" id="strangleCallMark">$534.50</span>
+
+                </div>
+
+                <div class="leg-metric">
+
+                  <span class="metric-lbl">BID / ASK:</span>
+
+                  <span class="metric-val font-mono" id="strangleCallQuotes">$515 / $555</span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+
+            <div class="strangle-leg-card strangle-leg-put">
+
+              <div class="leg-card-header">
+
+                <span class="leg-tag-put">SELL PUT (-OTM)</span>
+
+                <span class="leg-dist font-mono" id="stranglePutDist">-16.8% OTM</span>
+
+              </div>
+
+              <div class="leg-symbol font-mono" id="stranglePutSymbol">P-BTC-69000-271126</div>
+
+              <div class="leg-metrics-row">
+
+                <div class="leg-metric">
+
+                  <span class="metric-lbl">STRIKE:</span>
+
+                  <span class="metric-val font-mono" id="stranglePutStrike">$69,000</span>
+
+                </div>
+
+                <div class="leg-metric">
+
+                  <span class="metric-lbl">MARK PREM:</span>
+
+                  <span class="metric-val font-mono" id="stranglePutMark">$507.80</span>
+
+                </div>
+
+                <div class="leg-metric">
+
+                  <span class="metric-lbl">BID / ASK:</span>
+
+                  <span class="metric-val font-mono" id="stranglePutQuotes">$490 / $525</span>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Auto-Calculated Math Strip with Editable Combined TP & SL -->
+
+          <div class="strangle-math-strip">
+
+            <div class="math-box">
+
+              <span class="math-lbl">EXPIRY (NEXT-MONTH)</span>
+
+              <span class="math-val font-mono" id="strangleExpiryVal">27-NOV-2026 (38 DTE)</span>
+
+            </div>
+
+            <div class="math-box">
+
+              <span class="math-lbl">COMBINED ENTRY CREDIT</span>
+
+              <span class="math-val font-mono pnl-positive" id="strangleTotalCreditVal">$104.23 USD</span>
+
+            </div>
+
+            <div class="math-box math-box-input">
+
+              <div class="math-box-header">
+
+                <span class="math-lbl">TARGET PROFIT (TP)</span>
+
+                <span class="math-pct-pill pnl-positive" id="strangleTpPctSub">+20%</span>
+
+              </div>
+
+              <div class="math-input-wrap">
+
+                <span class="math-input-prefix font-mono pnl-positive">+$</span>
+
+                <input type="number" id="strangleCustomTpInput" class="strangle-math-input font-mono pnl-positive" step="0.5" min="0.1" placeholder="20.85" title="Custom Combined Target Profit in USD">
+
+              </div>
+
+            </div>
+
+            <div class="math-box math-box-input">
+
+              <div class="math-box-header">
+
+                <span class="math-lbl">DYNAMIC STOP-LOSS</span>
+
+                <span class="math-pct-pill pnl-negative" id="strangleSlPctSub">Dynamic</span>
+
+              </div>
+
+              <div class="math-input-wrap">
+
+                <span class="math-input-prefix font-mono pnl-negative">-$</span>
+
+                <input type="number" id="strangleCustomSlInput" class="strangle-math-input font-mono pnl-negative" step="0.5" min="0.1" placeholder="41.70" title="Custom Combined Stop-Loss in USD">
+
+              </div>
+
+            </div>
+
+            <div class="math-box">
+
+              <div class="math-box-header">
+
+                <span class="math-lbl">HARD SL CAP ($1.50/LOT)</span>
+
+                <button type="button" class="btn-math-reset font-mono" id="strangleResetTpSlBtn" title="Reset TP &amp; SL to Rulebook defaults">↺ RESET</button>
+
+              </div>
+
+              <span class="math-val font-mono" id="strangleHardSlVal">Max -$150.00</span>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Active Trade / Golden Rule Status Alert (hidden unless active) -->
+
+          <div class="strangle-active-alert" id="strangleActiveAlert" style="display: none;">
+
+            <span class="alert-icon">🛡️</span>
+
+            <div class="alert-text">
+
+              <strong>GOLDEN RULE ACTIVE:</strong> A Strangle trade is currently running! New trade deployment is paused until the existing position hits Target or Stop-Loss.
+
+            </div>
+
+          </div>
+
+
+
+          <!-- Action Buttons -->
+
+          <div class="strangle-actions-row">
+
+            <button class="btn btn-strangle-deploy" id="strangleDeployBtn">
+
+              <span class="btn-icon">⚡</span> 1-CLICK INSTANT DEPLOY STRANGLE
+
+            </button>
+
+            <button class="btn btn-secondary" id="strangleRefreshBtn">
+
+              <span class="btn-icon">🔄</span> REFRESH STRIKES
+
+            </button>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+
+      <!-- Panel 3: Active Strategy Groups (Combined SL & TP) -->
+
+      <article class="panel strategy-groups-panel">
+
+        <div class="panel-header">
+
+          <div class="panel-title-box">
+
+            <span class="panel-icon">🧩</span>
+
+            <h3 class="panel-title">STRATEGY GROUPS (COMBINED SL / TP)</h3>
+
+          </div>
+
+          <span class="badge-sub font-mono" id="activeGroupsCount">0 ACTIVE</span>
+
+        </div>
+
+
+
+        <div class="strategy-groups-body" id="strategyGroupsContainer">
+
+          <div class="empty-groups-state" id="emptyGroupsState">
+
+            <div class="empty-icon-sm">🎯</div>
+
+            <div class="empty-groups-title">No Strategy Groups Created</div>
+
+            <div class="empty-groups-sub">Select 2 or more positions in the table above and click <strong>"Combine into Group"</strong> to set a combined Target &amp; Stop-Loss!</div>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+
+      <!-- Panel 4: Session Order History -->
+
+      <article class="panel history-panel">
+
+        <div class="panel-header">
+
+          <div class="panel-title-box">
+
+            <span class="panel-icon">📜</span>
+
+            <h3 class="panel-title">ORDER &amp; STRATEGY AUDIT HISTORY</h3>
+
+          </div>
+
+          <div class="history-header-badges">
+
+            <span class="badge-total-profit font-mono" id="totalLifetimeProfitBadge">🏆 TOTAL PROFIT BOOKED: +$15.00 USD</span>
+
+            <span class="badge-sub">24/7 AUDIT LOG</span>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="history-body">
+
+          <div class="table-container mini-table-container">
+
+            <table class="mini-table">
+
+              <thead>
+
+                <tr>
+
+                  <th>TIME</th>
+
+                  <th>CONTRACT</th>
+
+                  <th>SIDE</th>
+
+                  <th>SIZE</th>
+
+                  <th>STATUS</th>
+
+                </tr>
+
+              </thead>
+
+              <tbody id="historyBody">
+
+                <tr class="empty-mini-row">
+
+                  <td colspan="5">No order submissions logged in this session.</td>
+
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </article>
+
+
+
+    </section>
+
+
+
+  </main>
+
+
+
+  <!-- Create Combined Group Modal -->
+
+  <div class="modal-overlay" id="groupModal">
+
+    <div class="modal-box modal-box-group">
+
+      <div class="modal-header">
+
+        <div class="modal-title">🧩 CREATE COMBINED STRATEGY GROUP</div>
+
+        <button class="modal-close" id="groupModalCloseBtn">&times;</button>
+
       </div>
 
-      <div class="p-space-xs bg-terminal-amber/10 border border-terminal-amber/30 text-[11px] font-label-code text-terminal-amber flex items-center gap-1.5">
-        <span class="material-symbols-outlined text-[16px]">bolt</span>
-        <span><strong>Instant Cloud Sync:</strong> Saving these thresholds immediately updates the 24/7 background monitor daemon on Render Cloud!</span>
+      <div class="modal-body">
+
+        <div class="input-group">
+
+          <label for="groupNameInput">GROUP / STRATEGY NAME</label>
+
+          <input type="text" id="groupNameInput" placeholder="e.g. BTC 84000 Straddle / Pair #1" autocomplete="off">
+
+        </div>
+
+
+
+        <div class="group-selected-summary">
+
+          <div class="summary-label">INCLUDED LEGS:</div>
+
+          <div class="selected-legs-list" id="selectedLegsList">
+
+            <!-- Populated dynamically -->
+
+          </div>
+
+          <div class="modal-row group-mtm-row">
+
+            <span class="m-label">CURRENT COMBINED P&amp;L:</span>
+
+            <span class="m-val font-mono" id="groupCurrentMtm">$0.00</span>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="form-grid">
+
+          <div class="input-group">
+
+            <label for="groupTargetInput">COMBINED TARGET PROFIT ($)</label>
+
+            <input type="number" id="groupTargetInput" min="0.1" step="any" placeholder="e.g. +50.00">
+
+            <span class="input-subnote">Auto-exits all legs when combined P&amp;L reaches this profit</span>
+
+          </div>
+
+
+
+          <div class="input-group">
+
+            <label for="groupStopLossInput">COMBINED STOP-LOSS ($)</label>
+
+            <input type="number" id="groupStopLossInput" min="0.1" step="any" placeholder="e.g. -30.00">
+
+            <span class="input-subnote">Auto-exits all legs when combined P&amp;L reaches this loss</span>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="group-rule-note">
+
+          ⚡ <strong>Automated 1-Second Monitor:</strong> The dashboard will monitor the total net P&amp;L of these selected positions every second. As soon as the Combined Target or Combined Stop-Loss is hit, it will automatically transmit market-close orders for all legs in this group!
+
+        </div>
+
       </div>
+
+      <div class="modal-footer">
+
+        <button class="btn btn-secondary" id="groupModalCancelBtn">CANCEL</button>
+
+        <button class="btn btn-start" id="groupModalSaveBtn">ACTIVATE COMBINED GROUP</button>
+
+      </div>
+
     </div>
 
-    <div class="flex items-center justify-end gap-space-sm border-t border-border-subtle pt-space-md mt-space-md">
-      <button id="editGroupModalCancelBtn" type="button" class="px-space-md py-2 bg-surface-container text-on-surface-variant font-label-code text-label-code uppercase hover:text-on-surface cursor-pointer">CANCEL</button>
-      <button id="editGroupModalSaveBtn" type="button" class="px-space-lg py-2 bg-terminal-amber text-surface-container-lowest font-label-code text-label-code font-bold uppercase hover:bg-terminal-amber/90 transition-colors cursor-pointer flex items-center gap-1">
-        <span class="material-symbols-outlined text-[16px]">save</span>
-        <span>SAVE THRESHOLDS</span>
-      </button>
-    </div>
   </div>
-</div>
 
-  <!-- Core Real-Time Application JavaScript -->
-  <script src="/static/js/app.js"></script>
 
-<!-- Group Creation Modal -->
-<div id="groupModal" style="display: none;" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm items-center justify-center p-4">
-  <div class="bg-surface-container-lowest border border-border-subtle w-full max-w-lg p-space-lg shadow-2xl relative">
-    <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-telemetry-cyan">group_add</span>
-        <h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">CREATE COMBINED STRATEGY GROUP</h3>
+
+  <!-- Edit Strategy Group Modal -->
+
+  <div class="modal-overlay" id="editGroupModal">
+
+    <div class="modal-box modal-box-group">
+
+      <div class="modal-header">
+
+        <div class="modal-title">✏️ UPDATE COMBINED TARGET &amp; STOP-LOSS</div>
+
+        <button class="modal-close" id="editGroupModalCloseBtn">&times;</button>
+
       </div>
-      <button id="groupModalCloseBtn" type="button" class="text-on-surface-variant hover:text-on-surface text-2xl font-bold cursor-pointer">&times;</button>
+
+      <div class="modal-body">
+
+        <div class="input-group">
+
+          <label for="editGroupNameInput">STRATEGY NAME</label>
+
+          <input type="text" id="editGroupNameInput" autocomplete="off" disabled style="opacity: 0.75; cursor: not-allowed;">
+
+        </div>
+
+
+
+        <input type="hidden" id="editGroupIdInput">
+
+
+
+        <div class="form-grid">
+
+          <div class="input-group">
+
+            <label for="editGroupTargetInput">COMBINED TARGET PROFIT ($)</label>
+
+            <input type="number" id="editGroupTargetInput" min="0.1" step="any" placeholder="e.g. 20.00">
+
+            <span class="input-subnote">Auto-exits all legs when combined profit reaches this amount</span>
+
+          </div>
+
+
+
+          <div class="input-group">
+
+            <label for="editGroupStopLossInput">COMBINED STOP-LOSS ($)</label>
+
+            <input type="number" id="editGroupStopLossInput" min="0.1" step="any" placeholder="e.g. 30.00">
+
+            <span class="input-subnote">Auto-exits all legs when combined loss reaches this amount</span>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="group-rule-note">
+
+          ⚡ <strong>Instant Cloud Update:</strong> Changing these thresholds updates the 24/7 background monitor immediately without touching or closing your positions.
+
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <button class="btn btn-secondary" id="editGroupModalCancelBtn">CANCEL</button>
+
+        <button class="btn btn-start" id="editGroupModalSaveBtn">SAVE NEW TARGET &amp; SL</button>
+
+      </div>
+
     </div>
-    
-    <div class="space-y-space-md">
-      <div>
-        <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">STRATEGY / GROUP NAME</label>
-        <input type="text" id="groupNameInput" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-on-surface font-body-sm focus:border-telemetry-cyan outline-none" placeholder="e.g. BTC Strangle Pair #1">
-      </div>
 
-      <div class="bg-surface-container p-space-sm border border-border-subtle">
-        <div class="font-label-code text-label-code text-on-surface-variant uppercase mb-1">INCLUDED LEGS:</div>
-        <div id="selectedLegsList" class="space-y-1 text-data-md font-data-md text-on-surface max-h-32 overflow-y-auto">
-          <!-- Dynamically populated -->
-        </div>
-        <div class="mt-space-sm pt-space-xs border-t border-border-subtle flex justify-between font-label-code text-label-code">
-          <span class="text-on-surface-variant uppercase">COMBINED UNREALIZED MTM:</span>
-          <span id="groupCurrentMtm" class="text-execution-emerald font-bold">$0.00 USD</span>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-space-md">
-        <div>
-          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED TARGET ($)</label>
-          <input type="number" id="groupTargetInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-execution-emerald font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 15.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code">Auto-exits all legs when profit hits this $</span>
-        </div>
-        <div>
-          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED STOP LOSS ($)</label>
-          <input type="number" id="groupStopLossInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-critical-crimson font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 30.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code">Auto-exits all legs when loss hits this $</span>
-        </div>
-      </div>
-
-      <div class="p-space-xs bg-telemetry-cyan/10 border border-telemetry-cyan/30 text-[11px] font-label-code text-telemetry-cyan">
-        ⚡ <strong>Automated 1-Second Monitor:</strong> The 24/7 background daemon monitors total net PnL every second. As soon as Combined Target or Stop Loss is touched, it automatically sends market-close orders for all legs!
-      </div>
-    </div>
-
-    <div class="flex items-center justify-end gap-space-sm border-t border-border-subtle pt-space-md mt-space-md">
-      <button id="groupModalCancelBtn" type="button" class="px-space-md py-2 bg-surface-container text-on-surface-variant font-label-code text-label-code uppercase hover:text-on-surface cursor-pointer">CANCEL</button>
-      <button id="groupModalSaveBtn" type="button" class="px-space-md py-2 bg-execution-emerald text-surface-container-lowest font-label-code text-label-code font-bold uppercase hover:bg-execution-emerald/90 cursor-pointer">ACTIVATE COMBINED GROUP</button>
-    </div>
   </div>
-</div>
 
-<!-- Edit Strategy Group Modal -->
-<div id="editGroupModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-  <div class="bg-surface-container-lowest border border-border-subtle w-full max-w-lg p-space-lg shadow-2xl relative">
-    <div class="flex items-center justify-between border-b border-border-subtle pb-space-sm mb-space-md">
-      <div class="flex items-center gap-2">
-        <span class="material-symbols-outlined text-terminal-amber">tune</span>
-        <h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-tight">UPDATE COMBINED TARGET &amp; STOP-LOSS</h3>
-      </div>
-      <button id="editGroupModalCloseBtn" type="button" class="text-on-surface-variant hover:text-on-surface text-2xl font-bold cursor-pointer">&times;</button>
-    </div>
 
-    <div class="space-y-space-md">
-      <input type="hidden" id="editGroupIdInput">
-      <div>
-        <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">STRATEGY NAME</label>
-        <input type="text" id="editGroupNameInput" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-on-surface-variant font-body-sm cursor-not-allowed opacity-75 outline-none" disabled>
+
+  <!-- Live Order Confirmation Modal -->
+
+  <div class="modal-overlay" id="orderModal">
+
+    <div class="modal-box">
+
+      <div class="modal-header">
+
+        <div class="modal-title">⚠️ CONFIRM LIVE EXCHANGE ORDER</div>
+
+        <button class="modal-close" id="modalCloseBtn">&times;</button>
+
       </div>
 
-      <div class="grid grid-cols-2 gap-space-md">
-        <div>
-          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED TARGET ($)</label>
-          <input type="number" id="editGroupTargetInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-execution-emerald font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 15.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code">Exit all legs when profit touches this $</span>
+      <div class="modal-body">
+
+        <div class="modal-summary">
+
+          <div class="modal-row">
+
+            <span class="m-label">CONTRACT:</span>
+
+            <span class="m-val font-mono" id="mSymbol">—</span>
+
+          </div>
+
+          <div class="modal-row">
+
+            <span class="m-label">ACTION:</span>
+
+            <span class="m-val font-mono" id="mAction">—</span>
+
+          </div>
+
+          <div class="modal-row">
+
+            <span class="m-label">QUANTITY:</span>
+
+            <span class="m-val font-mono" id="mQty">—</span>
+
+          </div>
+
+          <div class="modal-row">
+
+            <span class="m-label">ORDER TYPE / PRICE:</span>
+
+            <span class="m-val font-mono" id="mPrice">—</span>
+
+          </div>
+
+          <div class="modal-row" id="mBracketRow">
+
+            <span class="m-label">BRACKET PROTECTION:</span>
+
+            <span class="m-val font-mono" id="mBracket">—</span>
+
+          </div>
+
         </div>
-        <div>
-          <label class="block font-label-code text-label-code text-on-surface-variant uppercase mb-1">COMBINED STOP LOSS ($)</label>
-          <input type="number" id="editGroupStopLossInput" step="any" min="0.1" class="w-full bg-surface-container border border-border-subtle px-space-sm py-2 text-critical-crimson font-data-md font-bold focus:border-telemetry-cyan outline-none" placeholder="e.g. 30.00">
-          <span class="text-[10px] text-on-surface-variant font-label-code">Exit all legs when loss touches this $</span>
+
+        <div class="modal-warning">
+
+          This order will be immediately transmitted to Delta Exchange and will create real financial obligations.
+
         </div>
+
       </div>
 
-      <div class="p-space-xs bg-terminal-amber/10 border border-terminal-amber/30 text-[11px] font-label-code text-terminal-amber">
-        ⚡ <strong>Instant Cloud Update:</strong> Changing these values updates the 24/7 background monitor immediately without touching or closing open positions.
+      <div class="modal-footer">
+
+        <button class="btn btn-secondary" id="modalCancelBtn">CANCEL</button>
+
+        <button class="btn btn-submit-live" id="modalConfirmBtn">AUTHORIZE &amp; TRANSMIT</button>
+
       </div>
+
     </div>
 
-    <div class="flex items-center justify-end gap-space-sm border-t border-border-subtle pt-space-md mt-space-md">
-      <button id="editGroupModalCancelBtn" type="button" class="px-space-md py-2 bg-surface-container text-on-surface-variant font-label-code text-label-code uppercase hover:text-on-surface cursor-pointer">CANCEL</button>
-      <button id="editGroupModalSaveBtn" type="button" class="px-space-md py-2 bg-terminal-amber text-surface-container-lowest font-label-code text-label-code font-bold uppercase hover:bg-terminal-amber/90 cursor-pointer">UPDATE CLOUD THRESHOLDS</button>
-    </div>
   </div>
-</div>
 
-</body></html>
+
+
+  <!-- Exit All Emergency Confirmation Modal -->
+
+  <div class="modal-overlay" id="exitModal">
+
+    <div class="modal-box modal-box-danger">
+
+      <div class="modal-header">
+
+        <div class="modal-title">🚨 AUTHORIZE EMERGENCY EXIT ALL</div>
+
+        <button class="modal-close" id="exitModalCloseBtn">&times;</button>
+
+      </div>
+
+      <div class="modal-body">
+
+        <div class="modal-danger-alert">
+
+          WARNING: This will cancel ALL limit, stop, and reduce-only orders, and submit immediate market-close orders for ALL portfolio and isolated positions across your entire Delta account!
+
+        </div>
+
+        <p class="modal-instruction">
+
+          To confirm this emergency action, type <strong>EXIT ALL</strong> in the input below:
+
+        </p>
+
+        <input type="text" id="exitConfirmationInput" class="danger-input font-mono" placeholder="Type EXIT ALL here" autocomplete="off">
+
+      </div>
+
+      <div class="modal-footer">
+
+        <button class="btn btn-secondary" id="exitModalCancelBtn">CANCEL</button>
+
+        <button class="btn btn-panic" id="exitModalConfirmBtn" disabled>CANCEL ALL &amp; CLOSE POSITIONS</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- Toast Notification Popup -->
+
+  <div class="toast-shelf" id="toastShelf"></div>
+
+
+
+  <!-- Front-End Script -->
+
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ version }}"></script>
+
+</body>
+
+</html>
+
