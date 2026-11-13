@@ -3673,6 +3673,7 @@ def set_delta_native_bracket_sl(env: str, key: str, secret: str, product_id: int
             "stop_price": str(sl_float),
             "limit_price": str(limit_float),
             "stop_trigger_method": "mark_price",
+            "reduce_only": True,
         }
         res = client.authenticated_request("POST", "/v2/orders", body=body)
         order_id = (res or {}).get("id")
@@ -3681,6 +3682,67 @@ def set_delta_native_bracket_sl(env: str, key: str, secret: str, product_id: int
     except Exception as exc:
         logger.warning("Could not attach native stop order for product %s: %s", product_id, exc)
         return False
+
+
+def cancel_delta_orders_for_strategy_group(env: str, key: str, secret: str, group_positions: List[Dict[str, Any]]) -> None:
+    """Ensure ALL open and pending stop orders for every leg in a strategy group are completely wiped clean from Delta Exchange."""
+    try:
+        client = DeltaRESTClient(env, key, secret)
+        target_product_ids = set()
+        for p in (group_positions or []):
+            pid = p.get("product_id")
+            if pid is not None:
+                try:
+                    target_product_ids.add(int(pid))
+                except Exception:
+                    pass
+
+        if not target_product_ids:
+            return
+
+        # 1. Delete matching pending stop orders
+        try:
+            pending_orders = client.authenticated_request("GET", "/v2/orders", params={"state": "pending"})
+            if isinstance(pending_orders, list):
+                for o in pending_orders:
+                    p_id = int(o.get("product_id") or 0)
+                    if p_id in target_product_ids:
+                        try:
+                            client.authenticated_request("DELETE", "/v2/orders", body={"id": int(o.get("id")), "product_id": p_id})
+                            logger.info("🧹 Auto-Cleaned pending stop order #%s for product %s on Delta Exchange", o.get("id"), p_id)
+                        except Exception as e:
+                            logger.warning("Failed deleting pending stop order #%s: %s", o.get("id"), e)
+        except Exception as p_err:
+            logger.warning("Error scanning pending orders for cancellation: %s", p_err)
+
+        # 2. Delete matching open limit orders
+        try:
+            open_orders = client.authenticated_request("GET", "/v2/orders", params={"state": "open"})
+            if isinstance(open_orders, list):
+                for o in open_orders:
+                    p_id = int(o.get("product_id") or 0)
+                    if p_id in target_product_ids:
+                        try:
+                            client.authenticated_request("DELETE", "/v2/orders", body={"id": int(o.get("id")), "product_id": p_id})
+                            logger.info("🧹 Auto-Cleaned open order #%s for product %s on Delta Exchange", o.get("id"), p_id)
+                        except Exception as e:
+                            logger.warning("Failed deleting open order #%s: %s", o.get("id"), e)
+        except Exception as o_err:
+            logger.warning("Error scanning open orders for cancellation: %s", o_err)
+
+        # 3. Targeted bulk purge per product ID
+        for p_id in target_product_ids:
+            try:
+                client.authenticated_request("DELETE", "/v2/orders/all", body={
+                    "product_id": p_id,
+                    "cancel_stop_orders": True,
+                    "cancel_limit_orders": True,
+                    "cancel_reduce_only_orders": True
+                })
+            except Exception:
+                pass
+    except Exception as exc:
+        logger.error("Error in cancel_delta_orders_for_strategy_group: %s", exc)
 
 
 def execute_monthly_strangle_order(env: str, key: str, secret: str, lots: int = 100, custom_tp: Optional[float] = None, custom_sl: Optional[float] = None) -> Dict[str, Any]:
@@ -4246,6 +4308,7 @@ def run_strategy_monitor_daemon():
                     # All positions for this group are already closed on Delta Exchange
 
                     logger.info("All positions for strategy group '%s' are now closed on Delta Exchange. Archiving.", grp.get("name"))
+                    cancel_delta_orders_for_strategy_group(env, key, secret, grp_legs)
 
                     grp["status"] = "COMPLETED"
 
@@ -4301,6 +4364,40 @@ def run_strategy_monitor_daemon():
 
 
 
+                # Guard against partial stop-out on Delta Exchange
+                if 0 < matched_count < len(grp_legs):
+                    logger.warning("🚨 Partial strangle detected for '%s'! One leg was stopped out on Delta Exchange. Closing remaining unhedged leg(s) immediately to protect capital!", grp.get("name"))
+                    dummy_state = {"environment": env, "api_key": key, "api_secret": secret, "tdx_client": None}
+                    for leg in grp_legs:
+                        key1 = f"{leg.get('product_id')}_{leg.get('side')}"
+                        key2 = str(leg.get('product_id'))
+                        key3 = str(leg.get('symbol'))
+                        if pos_by_key.get(key1) or pos_by_key.get(key2) or pos_by_key.get(key3):
+                            try:
+                                close_single_position(dummy_state, leg)
+                            except Exception as ce:
+                                logger.error("Error auto-closing remaining leg %s: %s", leg.get("symbol"), ce)
+                    cancel_delta_orders_for_strategy_group(env, key, secret, grp_legs)
+                    grp["status"] = "SL_HIT"
+                    grp["exit_reason"] = "One leg stopped out on Delta Exchange; remaining leg auto-closed to prevent naked risk."
+                    dirty = True
+                    try:
+                        leg_syms = " + ".join(str(l.get("symbol", "")) for l in grp_legs)
+                        total_qty = sum(abs(int(safe_float(l.get("size")))) for l in grp_legs)
+                        add_history_entry(dummy_state, {
+                            "symbol": f"{grp.get('name')} ({leg_syms})",
+                            "side": "SL EXIT (LEG HIT)",
+                            "quantity": f"{total_qty} Lots",
+                            "price": f"-${abs(combined_mtm):.2f}",
+                            "realized_profit": -round(float(abs(combined_mtm)), 2),
+                            "order_type": "delta_bracket_sl_exit",
+                            "status": "🛑 Stop-Loss Hit (One Leg Stopped on Delta)",
+                            "time": datetime.now().strftime("%d-%m %H:%M:%S"),
+                        })
+                    except Exception as h_err:
+                        logger.debug("Auto-history archive error: %s", h_err)
+                    continue
+
                 # Trigger Target Profit Auto-Close
 
                 if combined_mtm >= target:
@@ -4331,6 +4428,7 @@ def run_strategy_monitor_daemon():
 
                     if all_closed:
 
+                        cancel_delta_orders_for_strategy_group(env, key, secret, grp_legs)
                         grp["status"] = "TARGET_HIT"
 
                         grp["exit_reason"] = f"Target Profit Hit (+${combined_mtm:.2f})"
@@ -4399,6 +4497,7 @@ def run_strategy_monitor_daemon():
 
                     if all_closed:
 
+                        cancel_delta_orders_for_strategy_group(env, key, secret, grp_legs)
                         grp["status"] = "SL_HIT"
 
                         grp["exit_reason"] = f"Stop Loss Hit (-${abs(combined_mtm):.2f})"
