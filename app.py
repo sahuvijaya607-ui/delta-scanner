@@ -3507,13 +3507,11 @@ def get_next_saturday_ist() -> Dict[str, Any]:
 
     current_month_str = now_ist.strftime("%Y-%m")
 
-    # October 2026 cycle is complete, next cycle begins on 1st Saturday of November (07-Nov-2026)!
+    # Month quota check: if 2 trades done this month, roll over to next month
 
     is_month_done = (
 
-        current_month_str == "2026-10"
-
-        or (sched.get("current_month") == current_month_str and sched.get("month_trade_count", 0) >= 2)
+        sched.get("month_trade_count", 0) >= 2
 
     )
 
@@ -4999,6 +4997,14 @@ def api_strangle_scheduler():
         if "lots" in data:
 
             sched["lots"] = max(1, int(safe_float(data["lots"], 100)))
+
+        if "month_trade_count" in data:
+
+            sched["month_trade_count"] = int(data.get("month_trade_count", 0))
+
+        if "current_month" in data:
+
+            sched["current_month"] = str(data.get("current_month", ""))
 
         save_strangle_scheduler(sched)
 
