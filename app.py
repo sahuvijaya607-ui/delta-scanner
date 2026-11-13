@@ -4045,7 +4045,7 @@ def run_strategy_monitor_daemon():
 
                                     trade_num = sched.get("month_trade_count", 0) + 1
 
-                                    logger.info("⏰ SATURDAY IST TRIGGER: Deploying automated Monthly Strangle (%s Lots) [Trade #%d of %s]!", sched.get("lots", 50), trade_num, current_month_str)
+                                    logger.info("⏰ SATURDAY IST TRIGGER: Deploying automated Monthly Strangle (%s Lots) [Trade #%d of %s]!", sched.get("lots", 100), trade_num, current_month_str)
 
                                     sched_creds = load_persistent_credentials()
 
@@ -4063,7 +4063,7 @@ def run_strategy_monitor_daemon():
 
                                                     sched_creds.get("api_secret"),
 
-                                                    lots=int(sched.get("lots", 50)),
+                                                    lots=int(sched.get("lots", 100)),
 
                                                 )
 
